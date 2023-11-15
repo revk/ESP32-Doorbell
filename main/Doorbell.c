@@ -43,14 +43,15 @@ static const char TAG[] = "Generic";
 // Dynamic
 
 #define	settings		\
-	io(gfxcs,)	\
-	io(gfxsck,)	\
-	io(gfxmosi,)	\
-	io(gfxdc,)	\
-	io(gfxrst,)	\
-	io(gfxbusy,)	\
+	io(gfxmosi,36)	\
+	io(gfxsck,38)	\
+	io(gfxcs,40)	\
+	io(gfxdc,42)	\
+	io(gfxrst,44)	\
+	io(gfxbusy,46)	\
 	io(gfxena,)	\
-        u8(gfxflip,)    \
+        u8(gfxflip,6)    \
+	io(bellpush,10)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
