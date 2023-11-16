@@ -263,7 +263,10 @@ app_main ()
    }
    revk_task ("push", push_task, NULL, 4);
    sleep (1);
-   uint8_t last = -1;
+   gfx_lock ();
+   gfx_clear (255);             // Black
+   gfx_unlock ();
+   uint32_t last = -1;
    while (1)
    {
       usleep (100000);
@@ -297,16 +300,18 @@ app_main ()
             gfx_text (5, "DELIVERY");
             gfx_unlock ();
          }
-      } else if (last != t.tm_mday)
+      } else if (last != now / 60)
       {                         // Show idle
          gfx_lock ();
+         if (!last || !t.tm_min)
+            gfx_refresh ();
          gfx_clear (0);
          gfx_pos (0, 0, 0);
          gfx_icon2 (480, 800, image_Idle);
          gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
-         gfx_text (4, "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+         gfx_text (4, "%04d-%02d-%02d %02d:%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
          gfx_unlock ();
-         last = t.tm_mday;
+         last = now / 60;
       }
    }
 }
