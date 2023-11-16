@@ -290,7 +290,7 @@ app_main ()
             gfx_pos (0, 0, 0);
             gfx_icon2 (480, 800, status);
             char temp[200];
-            sprintf (temp, "DELIVERED %4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
+            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
                      postcode);
             gfx_pos (8, gfx_height () - 1 - 8, GFX_B | GFX_L);
             gfx_qr (temp, 4);
