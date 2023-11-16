@@ -55,6 +55,8 @@ static const char TAG[] = "Generic";
 	io(bellpush,10)	\
 	u8(holdtime,30)	\
 	s(postcode)	\
+	s(bellmqtt)	\
+	s(bellmqttpl)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
@@ -72,6 +74,7 @@ settings
    httpd_handle_t webserver = NULL;
 uint32_t pushed = 0;
 uint32_t override = 0;
+uint32_t last = -1;
 
 static void
 web_head (httpd_req_t * req, const char *title)
@@ -180,6 +183,10 @@ app_callback (int client, const char *prefix, const char *target, const char *su
          status = image_Door;
       else if (!strcasecmp (value, "gate"))
          status = image_Gate;
+      if (!last)
+         last = -1;             // Redisplay
+      if (pushed)
+         pushed = uptime ();
    }
    return NULL;
 }
@@ -266,7 +273,6 @@ app_main ()
    gfx_lock ();
    gfx_clear (255);             // Black
    gfx_unlock ();
-   uint32_t last = -1;
    while (1)
    {
       usleep (100000);
@@ -285,13 +291,14 @@ app_main ()
          if (last)
          {                      // Show status as was showing idle
             last = 0;
+            if (*bellmqtt)
+               revk_mqtt_send_raw (bellmqtt, 0, bellmqttpl, 1);
             gfx_lock ();
             gfx_clear (0);
             gfx_pos (0, 0, 0);
             gfx_icon2 (480, 800, status);
             char temp[200];
-            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
-                     postcode);
+            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
             gfx_pos (8, gfx_height () - 1 - 8, GFX_B | GFX_L);
             gfx_qr (temp, 4);
             gfx_pos (120, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
