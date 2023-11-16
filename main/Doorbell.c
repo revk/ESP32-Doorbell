@@ -138,6 +138,8 @@ gfx_qr (const char *value)
    return NULL;
 }
 
+const uint8_t *status = image_Wait;
+
 const char *
 app_callback (int client, const char *prefix, const char *target, const char *suffix, jo_t j)
 {
@@ -171,7 +173,20 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       pushed = 0;
       return "";
    }
-   // TODO setting the status page number
+   if (!strcmp (suffix, "push"))
+   {
+      pushed = uptime ();
+      return "";
+   }
+   if (!strcmp (suffix, "status"))
+   {
+      if (!strcasecmp (value, "wait"))
+         status = image_Wait;
+      else if (!strcasecmp (value, "door"))
+         status = image_Door;
+      else if (!strcasecmp (value, "gate"))
+         status = image_Gate;
+   }
    return NULL;
 }
 
@@ -275,7 +290,12 @@ app_main ()
             last = 0;
             // Send MQTT TODO
             // Show status page
-            gfx_message ("[6]/ / / /PLEASE LEAVE/PARCELS/BEHIND/THE GATE/ / /--->");
+            gfx_lock ();
+            gfx_clear (0);
+            gfx_pos (0, 0, 0);
+            gfx_icon2 (480, 800, status);
+            // TODO QR?
+            gfx_unlock ();
          }
       } else if (last != t.tm_mday)
       {                         // Show idle
@@ -284,7 +304,7 @@ app_main ()
          gfx_pos (0, 0, 0);
          gfx_icon2 (480, 800, image_Idle);
          gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
-         gfx_text (6, "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+         gfx_text (4, "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
          gfx_unlock ();
          last = t.tm_mday;
       }
