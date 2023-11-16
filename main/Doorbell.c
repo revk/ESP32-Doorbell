@@ -53,6 +53,7 @@ static const char TAG[] = "Generic";
 	io(gfxena,)	\
         u8(gfxflip,6)    \
 	io(bellpush,10)	\
+	u8(holdtime,30)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
@@ -153,13 +154,17 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       return NULL;              //Not for us or not a command from main MQTT
    if (!strcmp (suffix, "qr"))
    {
+      // TODO set that this is an override
       return gfx_qr (value) ? : "";
    }
    if (!strcmp (suffix, "message"))
    {
+      // TODO set that this is an override
       gfx_message (value);
       return "";
    }
+   // TODO setting the status page number
+   // TODO cancel, i.e. door open
    return NULL;
 }
 
@@ -168,6 +173,24 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 #ifdef	CONFIG_REVK_APCONFIG
 #error 	Clash with CONFIG_REVK_APCONFIG set
 #endif
+
+uint32_t pushed = 0;
+uint32_t override = 0;
+
+void
+push_task (void *arg)
+{
+
+   gpio_reset_pin (port_mask (bellpush));
+   gpio_set_direction (port_mask (bellpush), GPIO_MODE_INPUT);
+   while (1)
+   {
+      uint8_t l = gpio_get_level (port_mask (bellpush));
+      if (!l)
+         pushed = uptime ();
+      usleep (10000);
+   }
+}
 
 void
 app_main ()
@@ -226,16 +249,38 @@ app_main ()
          revk_error ("gfx", &j);
       }
    }
+   revk_task ("push", push_task, NULL, 4);
+   uint8_t last = 0;
    while (1)
    {
+      usleep (100000);
       time_t now = time (0);
       struct tm t;
       localtime_r (&now, &t);
-      gfx_lock ();
-      gfx_clear (0);
-      gfx_pos (0, 0, 0);
-      gfx_icon2 (480, 800, image_Belmont);
-      gfx_unlock ();
-      sleep (86400 - t.tm_hour * 3600 - t.tm_min * 60 - t.tm_sec);
+      uint32_t up = uptime ();
+      if (override + holdtime < up)
+         override = 0;
+      if (override)
+         continue;
+      if (pushed + holdtime < up)
+         pushed = 0;            // Time out
+      if (pushed)
+      {                         // Bell was pushed
+         if (last)
+         {                      // Show status as was showing idle
+            last = 0;
+            // Send MQTT TODO
+            // Show status page
+            gfx_message ("PLEASE/WAIT");
+         }
+      } else if (last != t.tm_mday)
+      {                         // Show idle
+         gfx_lock ();
+         gfx_clear (0);
+         gfx_pos (0, 0, 0);
+         gfx_icon2 (480, 800, image_Belmont);
+         gfx_unlock ();
+         last = t.tm_mday;
+      }
    }
 }
