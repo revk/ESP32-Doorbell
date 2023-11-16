@@ -67,15 +67,13 @@ settings
 #undef u8
 #undef b
 #undef s
-
-httpd_handle_t webserver = NULL;
+   httpd_handle_t webserver = NULL;
 
 static void
 web_head (httpd_req_t * req, const char *title)
 {
    revk_web_head (req, title);
-   httpd_resp_sendstr_chunk (req,
-		   "<style>"     //
+   httpd_resp_sendstr_chunk (req, "<style>"     //
                              "body{font-family:sans-serif;background:#8cf;}"    //
                              "</style><body><h1>");
    if (title)
@@ -228,30 +226,16 @@ app_main ()
          revk_error ("gfx", &j);
       }
    }
-      while (1)
-      {
-         if (gfxmosi || gfxdc || gfxsck)
-         {
-            time_t now = time (0);
-            struct tm t;
-            localtime_r (&now, &t);
-            gfx_lock ();
-            gfx_clear (0);
-#if 0
-            char temp[100];
-            gfx_pos (gfx_width () / 2, gfx_height () / 2, GFX_B | GFX_C | GFX_V);
-            gfx_text (6, "%lu", now);
-            strftime (temp, sizeof (temp), "%H:%M", &t);
-            gfx_text (6, "%s", temp);
-            strftime (temp, sizeof (temp), "%F", &t);
-            gfx_text (6, "%s", temp);
-#else
-	    gfx_pos(0,0,0);
-	    gfx_icon2(480,800,image_Belmont);
-#endif
-            gfx_unlock ();
-            sleep (60 - t.tm_sec);
-         } else
-            sleep (1);
-      }
+   while (1)
+   {
+      time_t now = time (0);
+      struct tm t;
+      localtime_r (&now, &t);
+      gfx_lock ();
+      gfx_clear (0);
+      gfx_pos (0, 0, 0);
+      gfx_icon2 (480, 800, image_Belmont);
+      gfx_unlock ();
+      sleep (86400 - t.tm_hour * 3600 - t.tm_min * 60 - t.tm_sec);
+   }
 }

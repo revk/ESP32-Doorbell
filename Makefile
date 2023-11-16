@@ -6,7 +6,7 @@
 PROJECT_NAME := Doorbell
 SUFFIX := $(shell components/ESP32-RevK/buildsuffix)
 
-all:	 main/images.h
+all:	main/images.c
 	@echo Make: $(PROJECT_NAME)$(SUFFIX).bin
 	@idf.py build
 	@cp build/$(PROJECT_NAME).bin $(PROJECT_NAME)$(SUFFIX).bin
@@ -30,7 +30,7 @@ gd7965:
 main/images.h: $(patsubst %.svg,%.h,$(wildcard images/*.svg)) $(patsubst %.png,%.h,$(wildcard images/*.png))
 	grep -h 'const unsigned char' images/*.h | sed 's/const unsigned char image_\([A-Za-z0-9]*\).*/extern const unsigned char image_\1[];extern const unsigned int image_\1_size;/' > main/images.h
 
-main/images.c: $(patsubst %.svg,%.h,$(wildcard images/*.svg)) $(patsubst %.png,%.h,$(wildcard images/*.png))
+main/images.c: main/images.h
 	cat images/*.h > main/images.c
 
 images/%.mono:    images/%.svg
