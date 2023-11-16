@@ -309,7 +309,7 @@ app_main ()
          gfx_pos (0, 0, 0);
          gfx_icon2 (480, 800, image_Idle);
          gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
-         gfx_text (4, "%04d-%02d-%02d %02d:%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min);
+         gfx_text (4, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          last = now / 60;
       }
