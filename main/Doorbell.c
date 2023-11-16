@@ -271,14 +271,16 @@ app_main ()
             last = 0;
             // Send MQTT TODO
             // Show status page
-            gfx_message ("PLEASE/WAIT");
+            gfx_message ("[6]//PLEASE LEAVE/PARCELS/BEHIND/THE GATE//--->");
          }
       } else if (last != t.tm_mday)
       {                         // Show idle
          gfx_lock ();
          gfx_clear (0);
          gfx_pos (0, 0, 0);
-         gfx_icon2 (480, 800, image_Belmont);
+         gfx_icon2 (480, 800, image_Idle);
+	 gfx_pos(0,gfx_height()-1,GFX_B|GFX_L);
+	 gfx_text(6,"%04d-%02d-%02d",t.tm_year+1900,t.tm_mon+1,t.tm_mday);
          gfx_unlock ();
          last = t.tm_mday;
       }
