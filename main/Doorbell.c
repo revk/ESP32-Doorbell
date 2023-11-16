@@ -20,6 +20,7 @@ static const char TAG[] = "Generic";
 #include "iec18004.h"
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
+#include "images.h"
 
 #ifdef	CONFIG_LWIP_DHCP_DOES_ARP_CHECK
 #warning CONFIG_LWIP_DHCP_DOES_ARP_CHECK means DHCP is slow
@@ -218,8 +219,6 @@ app_main ()
    if (gfxmosi || gfxdc || gfxsck)
    {
     const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct:1);
-      if (!e)
-         e = gfx_qr ("HTTPS://WWW.ME.UK");
       if (e)
       {
          ESP_LOGE (TAG, "gfx %s", e);
@@ -233,20 +232,25 @@ app_main ()
       {
          if (gfxmosi || gfxdc || gfxsck)
          {
-            char temp[100];
             time_t now = time (0);
             struct tm t;
             localtime_r (&now, &t);
             gfx_lock ();
             gfx_clear (0);
+#if 0
+            char temp[100];
             gfx_pos (gfx_width () / 2, gfx_height () / 2, GFX_B | GFX_C | GFX_V);
             gfx_text (6, "%lu", now);
-            strftime (temp, sizeof (temp), "%T", &t);
+            strftime (temp, sizeof (temp), "%H:%M", &t);
             gfx_text (6, "%s", temp);
             strftime (temp, sizeof (temp), "%F", &t);
             gfx_text (6, "%s", temp);
+#else
+	    gfx_pos(0,0,0);
+	    gfx_icon2(480,800,image_Belmont);
+#endif
             gfx_unlock ();
-            sleep (10 - (t.tm_sec % 10));
+            sleep (60 - t.tm_sec);
          } else
             sleep (1);
       }
