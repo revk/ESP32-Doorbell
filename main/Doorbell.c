@@ -69,6 +69,8 @@ settings
 #undef b
 #undef s
    httpd_handle_t webserver = NULL;
+uint32_t pushed = 0;
+uint32_t override = 0;
 
 static void
 web_head (httpd_req_t * req, const char *title)
@@ -154,17 +156,22 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       return NULL;              //Not for us or not a command from main MQTT
    if (!strcmp (suffix, "qr"))
    {
-      // TODO set that this is an override
+      override = uptime ();
       return gfx_qr (value) ? : "";
    }
    if (!strcmp (suffix, "message"))
    {
-      // TODO set that this is an override
+      override = uptime ();
       gfx_message (value);
       return "";
    }
+   if (!strcmp (suffix, "cancel"))
+   {
+      override = 0;
+      pushed = 0;
+      return "";
+   }
    // TODO setting the status page number
-   // TODO cancel, i.e. door open
    return NULL;
 }
 
@@ -173,9 +180,6 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 #ifdef	CONFIG_REVK_APCONFIG
 #error 	Clash with CONFIG_REVK_APCONFIG set
 #endif
-
-uint32_t pushed = 0;
-uint32_t override = 0;
 
 void
 push_task (void *arg)
@@ -237,7 +241,6 @@ app_main ()
       revk_web_settings_add (webserver);
    }
 
-   if (gfxmosi || gfxdc || gfxsck)
    {
     const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct:1);
       if (e)
@@ -250,7 +253,8 @@ app_main ()
       }
    }
    revk_task ("push", push_task, NULL, 4);
-   uint8_t last = 0;
+   sleep (1);
+   uint8_t last = -1;
    while (1)
    {
       usleep (100000);
@@ -271,7 +275,7 @@ app_main ()
             last = 0;
             // Send MQTT TODO
             // Show status page
-            gfx_message ("[6]//PLEASE LEAVE/PARCELS/BEHIND/THE GATE//--->");
+            gfx_message ("[6]/ / / /PLEASE LEAVE/PARCELS/BEHIND/THE GATE/ / /--->");
          }
       } else if (last != t.tm_mday)
       {                         // Show idle
@@ -279,8 +283,8 @@ app_main ()
          gfx_clear (0);
          gfx_pos (0, 0, 0);
          gfx_icon2 (480, 800, image_Idle);
-	 gfx_pos(0,gfx_height()-1,GFX_B|GFX_L);
-	 gfx_text(6,"%04d-%02d-%02d",t.tm_year+1900,t.tm_mon+1,t.tm_mday);
+         gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
+         gfx_text (6, "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
          gfx_unlock ();
          last = t.tm_mday;
       }
