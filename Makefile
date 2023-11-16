@@ -27,6 +27,20 @@ gd7965:
 	components/ESP32-RevK/setbuildsuffix -S3-MINI-N4-R2-GD7965
 	@make
 
+main/images.h: $(patsubst %.svg,%.h,$(wildcard images/*.svg))
+	cat images/*.h > main/images.h
+
+images/%.png:    images/%.svg
+	inkscape --export-background=WHITE --export-type=png --export-filename=$@ $<
+
+images/%.bw:   images/%.png
+	convert $< -resize 32x32 -depth 1 -grayscale average -negate $@
+
+images/%.h:      images/%.bw
+	echo "const uint8_t icon_$(patsubst images/%.h,%,$@)[]={" > $@
+	od -Anone -tx1 -v -w64 $< | sed 's/ \(.\). \(.\)./0x\1\2,/g' >> $@
+	echo "};" >> $@
+
 flash:
 	idf.py flash
 
