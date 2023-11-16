@@ -54,6 +54,7 @@ static const char TAG[] = "Generic";
         u8(gfxflip,6)    \
 	io(bellpush,10)	\
 	u8(holdtime,30)	\
+	s(postcode)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
@@ -104,7 +105,7 @@ web_root (httpd_req_t * req)
 }
 
 const char *
-gfx_qr (const char *value)
+gfx_qr (const char *value,int s)
 {
 #ifndef	CONFIG_GFX_NONE
    unsigned int width = 0;
@@ -118,21 +119,17 @@ gfx_qr (const char *value)
       free (qr);
       return "Too wide";
    }
-   gfx_lock ();
-   gfx_clear (0);
-   int s = (w > h ? h : w) / width;
-   ESP_LOGE (TAG, "QR %d/%d %d", w, h, s);
-   int ox = (w - width * s) / 2;
-   int oy = (h - width * s) / 2;
+   ESP_LOGD (TAG, "QR %d/%d %d", w, h, s);
+   int ox = gfx_x();
+   int oy = gfx_y();
+   if(gfx_a()&GFX_B)oy-=s*width;
+   if(gfx_a()&GFX_R)ox-=s*width;
    for (int y = 0; y < width; y++)
       for (int x = 0; x < width; x++)
          if (qr[width * y + x] & QR_TAG_BLACK)
             for (int dy = 0; dy < s; dy++)
                for (int dx = 0; dx < s; dx++)
                   gfx_pixel (ox + x * s + dx, oy + y * s + dy, 0xFF);
-   gfx_pos (1, 1, GFX_T | GFX_L);
-   gfx_text (1, "%s", value);
-   gfx_unlock ();
    free (qr);
 #endif
    return NULL;
@@ -156,11 +153,6 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
       return NULL;              //Not for us or not a command from main MQTT
-   if (!strcmp (suffix, "qr"))
-   {
-      override = uptime ();
-      return gfx_qr (value) ? : "";
-   }
    if (!strcmp (suffix, "message"))
    {
       override = uptime ();
@@ -288,13 +280,17 @@ app_main ()
          if (last)
          {                      // Show status as was showing idle
             last = 0;
-            // Send MQTT TODO
-            // Show status page
             gfx_lock ();
             gfx_clear (0);
             gfx_pos (0, 0, 0);
             gfx_icon2 (480, 800, status);
-            // TODO QR?
+	    char temp[200];
+	    sprintf(temp,"DELIVERED %4d-%02d-%02d %02d:%02d %s",t.tm_year+1900,t.tm_mon+1,t.tm_mday,t.tm_hour,t.tm_min,postcode);
+	    gfx_pos(0,gfx_height()-1,GFX_B|GFX_L);
+	    gfx_qr(temp,4);
+	    gfx_pos(100,gfx_height()-1,GFX_B|GFX_L|GFX_V);
+	    gfx_text(5,"CONFIRMATION");
+	    gfx_text(5,"DELIVERY PHOTO");
             gfx_unlock ();
          }
       } else if (last != t.tm_mday)
