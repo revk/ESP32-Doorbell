@@ -105,7 +105,7 @@ web_root (httpd_req_t * req)
 }
 
 const char *
-gfx_qr (const char *value,int s)
+gfx_qr (const char *value, int s)
 {
 #ifndef	CONFIG_GFX_NONE
    unsigned int width = 0;
@@ -120,10 +120,12 @@ gfx_qr (const char *value,int s)
       return "Too wide";
    }
    ESP_LOGD (TAG, "QR %d/%d %d", w, h, s);
-   int ox = gfx_x();
-   int oy = gfx_y();
-   if(gfx_a()&GFX_B)oy-=s*width;
-   if(gfx_a()&GFX_R)ox-=s*width;
+   int ox = gfx_x ();
+   int oy = gfx_y ();
+   if (gfx_a () & GFX_B)
+      oy -= s * width;
+   if (gfx_a () & GFX_R)
+      ox -= s * width;
    for (int y = 0; y < width; y++)
       for (int x = 0; x < width; x++)
          if (qr[width * y + x] & QR_TAG_BLACK)
@@ -284,13 +286,15 @@ app_main ()
             gfx_clear (0);
             gfx_pos (0, 0, 0);
             gfx_icon2 (480, 800, status);
-	    char temp[200];
-	    sprintf(temp,"DELIVERED %4d-%02d-%02d %02d:%02d %s",t.tm_year+1900,t.tm_mon+1,t.tm_mday,t.tm_hour,t.tm_min,postcode);
-	    gfx_pos(0,gfx_height()-1,GFX_B|GFX_L);
-	    gfx_qr(temp,4);
-	    gfx_pos(100,gfx_height()-1,GFX_B|GFX_L|GFX_V);
-	    gfx_text(5,"CONFIRMATION");
-	    gfx_text(5,"DELIVERY PHOTO");
+            char temp[200];
+            sprintf (temp, "DELIVERED %4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
+                     postcode);
+            gfx_pos (8, gfx_height () - 1 - 8, GFX_B | GFX_L);
+            gfx_qr (temp, 4);
+            gfx_pos (120, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
+            gfx_text (5, "CONFIRMATION");
+            gfx_text (5, "PHOTO");
+            gfx_text (5, "DELIVERY");
             gfx_unlock ();
          }
       } else if (last != t.tm_mday)
