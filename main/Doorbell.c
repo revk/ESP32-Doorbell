@@ -296,7 +296,7 @@ app_main ()
             gfx_qr (temp, 4);
             gfx_pos (120, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
             gfx_text (5, "CONFIRMATION");
-            gfx_text (5, "PHOTO");
+            gfx_text (5, "PHOTO  %02d-%02d", t.tm_hour, t.tm_min);
             gfx_text (5, "DELIVERY");
             gfx_unlock ();
          }
@@ -309,7 +309,7 @@ app_main ()
          gfx_pos (0, 0, 0);
          gfx_icon2 (480, 800, image_Idle);
          gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
-         gfx_text (4, "%02d:%02d", t.tm_hour, t.tm_min);
+         gfx_text (6, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          last = now / 60;
       }
