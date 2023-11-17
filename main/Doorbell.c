@@ -87,37 +87,6 @@ char mqttinit = 0;
 char tasoutstate = 0;
 char tasbusystate = 0;
 
-static void
-web_head (httpd_req_t * req, const char *title)
-{
-   revk_web_head (req, title);
-   httpd_resp_sendstr_chunk (req, "<style>"     //
-                             "body{font-family:sans-serif;background:#8cf;}"    //
-                             "</style><body><h1>");
-   if (title)
-      httpd_resp_sendstr_chunk (req, title);
-   httpd_resp_sendstr_chunk (req, "</h1>");
-}
-
-static esp_err_t
-web_icon (httpd_req_t * req)
-{                               // serve image -  maybe make more generic file serve
-   extern const char start[] asm ("_binary_apple_touch_icon_png_start");
-   extern const char end[] asm ("_binary_apple_touch_icon_png_end");
-   httpd_resp_set_type (req, "image/png");
-   httpd_resp_send (req, start, end - start);
-   return ESP_OK;
-}
-
-static esp_err_t
-web_root (httpd_req_t * req)
-{
-   if (revk_link_down ())
-      return revk_web_settings (req);   // Direct to web set up
-   web_head (req, *hostname ? hostname : appname);
-   return revk_web_foot (req, 0, 1);
-}
-
 uint8_t *
 getimage (char *name)
 {
@@ -164,6 +133,104 @@ getimage (char *name)
    return buf;
 }
 
+void
+setactive (char *value)
+{
+   if (!strcmp (activename, value))
+      return;
+   ESP_LOGE (TAG, "Setting active %s", value);
+   xSemaphoreTake (mutex, portMAX_DELAY);
+   free (active);
+   active = NULL;
+   strncpy (activename, value, sizeof (activename));
+   if (*activename)
+      active = getimage (activename);
+   if (!last)
+      last = -1;                // Redisplay
+   if (pushed)
+      pushed = uptime ();
+   xSemaphoreGive (mutex);
+}
+
+static void
+web_head (httpd_req_t * req, const char *title)
+{
+   revk_web_head (req, title);
+   httpd_resp_sendstr_chunk (req, "<style>"     //
+                             "body{font-family:sans-serif;background:#8cf;}"    //
+                             "</style><body><h1>");
+   if (title)
+      httpd_resp_sendstr_chunk (req, title);
+   httpd_resp_sendstr_chunk (req, "</h1>");
+}
+
+static esp_err_t
+web_icon (httpd_req_t * req)
+{                               // serve image -  maybe make more generic file serve
+   extern const char start[] asm ("_binary_apple_touch_icon_png_start");
+   extern const char end[] asm ("_binary_apple_touch_icon_png_end");
+   httpd_resp_set_type (req, "image/png");
+   httpd_resp_send (req, start, end - start);
+   return ESP_OK;
+}
+
+static esp_err_t
+web_root (httpd_req_t * req)
+{
+   if (revk_link_down ())
+      return revk_web_settings (req);   // Direct to web set up
+   web_head (req, *hostname ? hostname : appname);
+   httpd_resp_sendstr_chunk (req, "<p>Active page ");
+   httpd_resp_sendstr_chunk (req, activename);
+   httpd_resp_sendstr_chunk (req, "</p>");
+   httpd_resp_sendstr_chunk (req, "<p><a href=/push>Ding!</a></p>");
+   return revk_web_foot (req, 0, 1);
+}
+
+static esp_err_t
+web_push (httpd_req_t * req)
+{
+   pushed = uptime ();
+   return web_root (req);
+}
+
+static esp_err_t
+web_active (httpd_req_t * req)
+{
+   size_t l = httpd_req_get_url_query_len (req);
+   char query[200];
+   if (l > 0 && l < sizeof (query) && !httpd_req_get_url_query_str (req, query, sizeof (query)))
+   {
+      char *q = query;
+      if (*q == '?')
+         q++;
+      setactive (q);
+   }
+   return web_root(req);
+}
+
+
+static void
+register_uri (const httpd_uri_t * uri_struct)
+{
+   esp_err_t res = httpd_register_uri_handler (webserver, uri_struct);
+   if (res != ESP_OK)
+   {
+      ESP_LOGE (TAG, "Failed to register %s, error code %d", uri_struct->uri, res);
+   }
+}
+
+static void
+register_get_uri (const char *uri, esp_err_t (*handler) (httpd_req_t * r))
+{
+   httpd_uri_t uri_struct = {
+      .uri = uri,
+      .method = HTTP_GET,
+      .handler = handler,
+   };
+   register_uri (&uri_struct);
+}
+
 const char *
 gfx_qr (const char *value, int s)
 {
@@ -195,25 +262,6 @@ gfx_qr (const char *value, int s)
    free (qr);
 #endif
    return NULL;
-}
-
-void
-setactive (char *value)
-{
-   if (!strcmp (activename, value))
-      return;
-   ESP_LOGE (TAG, "Setting active %s", value);
-   xSemaphoreTake (mutex, portMAX_DELAY);
-   free (active);
-   active = NULL;
-   strncpy (activename, value, sizeof (activename));
-   if (*activename)
-      active = getimage (activename);
-   if (!last)
-      last = -1;                // Redisplay
-   if (pushed)
-      pushed = uptime ();
-   xSemaphoreGive (mutex);
 }
 
 void
@@ -340,26 +388,13 @@ app_main ()
 
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.max_uri_handlers = 4 + revk_num_web_handlers ();
    if (!httpd_start (&webserver, &config))
    {
-      {
-         httpd_uri_t uri = {
-            .uri = "/",
-            .method = HTTP_GET,
-            .handler = web_root,
-            .user_ctx = NULL
-         };
-         REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
-      }
-      {
-         httpd_uri_t uri = {
-            .uri = "/apple-touch-icon.png",
-            .method = HTTP_GET,
-            .handler = web_icon,
-            .user_ctx = NULL
-         };
-         REVK_ERR_CHECK (httpd_register_uri_handler (webserver, &uri));
-      }
+      register_get_uri ("/", web_root);
+      register_get_uri ("/apple-touch-icon.png", web_icon);
+      register_get_uri ("/push", web_push);
+      register_get_uri ("/active", web_active);
       revk_web_settings_add (webserver);
    }
 
