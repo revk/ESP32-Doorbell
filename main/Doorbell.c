@@ -82,7 +82,9 @@ uint32_t last = -1;
 char activename[20] = "Wait";
 uint8_t *idle = NULL;
 uint8_t *active = NULL;
-static SemaphoreHandle_t mutex = NULL;
+SemaphoreHandle_t mutex = NULL;
+char wifiinit = 0;
+char mqttinit = 0;
 
 static void
 web_head (httpd_req_t * req, const char *title)
@@ -157,7 +159,7 @@ getimage (char *name)
       free (buf);
       return NULL;
    }
-   ESP_LOGE (TAG, "Image loaded %s",name);
+   ESP_LOGE (TAG, "Image loaded %s", name);
    return buf;
 }
 
@@ -210,6 +212,20 @@ setactive (char *value)
    xSemaphoreGive (mutex);
 }
 
+void
+tassub (char *name)
+{
+   if (!*name)
+      return;
+   char *topic;
+   asprintf (&topic, "stat/%s/RESULT", name);
+   lwmqtt_subscribe (revk_mqtt (0), topic);
+   free (topic);
+   asprintf (&topic, "cmnd/%s/POWER", name);
+   revk_mqtt_send_raw (topic, 0, NULL, 1);
+   free (topic);
+}
+
 const char *
 app_callback (int client, const char *prefix, const char *target, const char *suffix, jo_t j)
 {
@@ -226,10 +242,14 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
       return NULL;              //Not for us or not a command from main MQTT
+   if (!strcmp (suffix, "wifi"))
+   {
+      wifiinit = 1;
+      return "";
+   }
    if (!strcmp (suffix, "connect"))
    {
-      ESP_LOGE (TAG, "Connected");
-      last = -1;
+      mqttinit = 1;
       return "";
    }
    if (!strcmp (suffix, "message"))
@@ -350,6 +370,25 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
+      if (mqttinit)
+      {
+         ESP_LOGE (TAG, "MQTT Connected");
+         mqttinit = 0;
+         last = -1;
+         tassub (tasout);
+         tassub (tasbusy);
+      }
+      if (wifiinit)
+      {                         // Get files
+         ESP_LOGE (TAG, "Wifi Connected");
+         wifiinit = 0;
+         xSemaphoreTake (mutex, portMAX_DELAY);
+         if (*idlename && !idle)
+            idle = getimage (idlename);
+         if (*activename && !active)
+            active = getimage (activename);
+         xSemaphoreGive (mutex);
+      }
       if (override + holdtime < up)
          override = 0;
       if (override)
@@ -371,6 +410,8 @@ app_main ()
          if (last)
          {                      // Show status as was showing idle
             xSemaphoreTake (mutex, portMAX_DELAY);
+            if (*activename && !active)
+               active = getimage (activename);
             last = 0;
             if (*bellmqtt)
                revk_mqtt_send_raw (bellmqtt, 0, bellmqttpl, 1);
@@ -401,8 +442,6 @@ app_main ()
             gfx_icon2 (gfx_width (), gfx_height (), idle);
          addqr ();
          gfx_unlock ();
-         if (*activename && !active)
-            active = getimage (activename);
          last = now / 60;
          xSemaphoreGive (mutex);
       }
