@@ -56,11 +56,10 @@ static const char TAG[] = "Generic";
 	s(imageurl)	\
 	s(idlename)	\
 	s(postcode)	\
-	s(bellmqtt)	\
-	s(bellmqttpl)	\
 	s(toot)		\
 	s(tasout)	\
 	s(tasbusy)	\
+	s(tasbell)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
@@ -201,6 +200,8 @@ gfx_qr (const char *value, int s)
 void
 setactive (char *value)
 {
+   if (!strcmp (activename, value))
+      return;
    ESP_LOGE (TAG, "Setting active %s", value);
    xSemaphoreTake (mutex, portMAX_DELAY);
    free (active);
@@ -249,9 +250,9 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       if (jo_find (j, "POWER") == JO_STRING)
       {                         // "ON" or "OFF"
          if (!strcmp (target, tasout))
-            tasoutstate = !jo_strcmp (j, "OFF");	// Off means we are out
+            tasoutstate = !jo_strcmp (j, "OFF");        // Off means we are out
          else if (!strcmp (target, tasbusy))
-            tasbusystate = !jo_strcmp (j, "OFF");	// Off means we are busy
+            tasbusystate = !jo_strcmp (j, "OFF");       // Off means we are busy
          setactive (tasoutstate ? "Gate" : tasbusystate ? "Door" : "Wait");
       }
    }
@@ -428,8 +429,13 @@ app_main ()
             if (*activename && !active)
                active = getimage (activename);
             last = 0;
-            if (*bellmqtt)
-               revk_mqtt_send_raw (bellmqtt, 0, bellmqttpl, 1);
+            if (*tasbell)
+            {
+               char *topic = NULL;
+               asprintf (&topic, "cmnd/%s/POWER", tasbell);
+               revk_mqtt_send_raw (topic, 0, "ON", 1);
+               free (topic);
+            }
             gfx_lock ();
             gfx_clear (0);
             gfx_pos (0, 0, 0);
@@ -440,6 +446,14 @@ app_main ()
             addqr ();
             gfx_unlock ();
             xSemaphoreGive (mutex);
+            if (*toot)
+            {
+               char *pl = NULL;
+               asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900, t.tm_mon + 1,
+                         t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
+               revk_mqtt_send_raw ("toot", 0, pl, 1);
+               free (pl);
+            }
          }
       } else if (last != now / 60)
       {                         // Show idle
