@@ -85,6 +85,8 @@ uint8_t *active = NULL;
 SemaphoreHandle_t mutex = NULL;
 char wifiinit = 0;
 char mqttinit = 0;
+char tasoutstate = 0;
+char tasbusystate = 0;
 
 static void
 web_head (httpd_req_t * req, const char *title)
@@ -199,6 +201,7 @@ gfx_qr (const char *value, int s)
 void
 setactive (char *value)
 {
+   ESP_LOGE (TAG, "Setting active %s", value);
    xSemaphoreTake (mutex, portMAX_DELAY);
    free (active);
    active = NULL;
@@ -239,6 +242,18 @@ app_callback (int client, const char *prefix, const char *target, const char *su
          return "Expecting JSON string";
       if (len > sizeof (value))
          return "Too long";
+   }
+   if (prefix && target && suffix && j && !strcmp (prefix, "stat") && !strcmp (suffix, "RESULT"))
+   {
+      jo_rewind (j);
+      if (jo_find (j, "POWER") == JO_STRING)
+      {                         // "ON" or "OFF"
+         if (!strcmp (target, tasout))
+            tasoutstate = !jo_strcmp (j, "OFF");	// Off means we are out
+         else if (!strcmp (target, tasbusy))
+            tasbusystate = !jo_strcmp (j, "OFF");	// Off means we are busy
+         setactive (tasoutstate ? "Gate" : tasbusystate ? "Door" : "Wait");
+      }
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
       return NULL;              //Not for us or not a command from main MQTT
@@ -370,17 +385,9 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
-      if (mqttinit)
-      {
-         ESP_LOGE (TAG, "MQTT Connected");
-         mqttinit = 0;
-         last = -1;
-         tassub (tasout);
-         tassub (tasbusy);
-      }
       if (wifiinit)
       {                         // Get files
-         ESP_LOGE (TAG, "Wifi Connected");
+         ESP_LOGE (TAG, "WiFi Connected");
          wifiinit = 0;
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (*idlename && !idle)
@@ -388,6 +395,14 @@ app_main ()
          if (*activename && !active)
             active = getimage (activename);
          xSemaphoreGive (mutex);
+      }
+      if (mqttinit)
+      {
+         ESP_LOGE (TAG, "MQTT Connected");
+         mqttinit = 0;
+         last = -1;
+         tassub (tasout);
+         tassub (tasbusy);
       }
       if (override + holdtime < up)
          override = 0;
