@@ -79,7 +79,7 @@ settings
 uint32_t pushed = 0;
 uint32_t override = 0;
 uint32_t last = -1;
-char activename[20] = "";
+char activename[20] = "Wait";
 uint8_t *idle = NULL;
 uint8_t *active = NULL;
 static SemaphoreHandle_t mutex = NULL;
@@ -122,6 +122,9 @@ getimage (char *name)
       return NULL;
    char *url;
    asprintf (&url, "%s/%s.mono", imageurl, name);
+   if (!url)
+      return NULL;
+   ESP_LOGE (TAG, "Get %s", url);
    const int size = gfx_width () * gfx_height () / 8;
    uint8_t *buf = mallocspi (size);
    if (!buf)
@@ -154,6 +157,7 @@ getimage (char *name)
       free (buf);
       return NULL;
    }
+   ESP_LOGE (TAG, "Image loaded %s",name);
    return buf;
 }
 
@@ -190,6 +194,22 @@ gfx_qr (const char *value, int s)
    return NULL;
 }
 
+void
+setactive (char *value)
+{
+   xSemaphoreTake (mutex, portMAX_DELAY);
+   free (active);
+   active = NULL;
+   strncpy (activename, value, sizeof (activename));
+   if (*activename)
+      active = getimage (activename);
+   if (!last)
+      last = -1;                // Redisplay
+   if (pushed)
+      pushed = uptime ();
+   xSemaphoreGive (mutex);
+}
+
 const char *
 app_callback (int client, const char *prefix, const char *target, const char *suffix, jo_t j)
 {
@@ -206,6 +226,12 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
       return NULL;              //Not for us or not a command from main MQTT
+   if (!strcmp (suffix, "connect"))
+   {
+      ESP_LOGE (TAG, "Connected");
+      last = -1;
+      return "";
+   }
    if (!strcmp (suffix, "message"))
    {
       xSemaphoreTake (mutex, portMAX_DELAY);
@@ -227,15 +253,8 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (!strcmp (suffix, "status"))
    {
-      xSemaphoreTake (mutex, portMAX_DELAY);
-      free (active);
-      active = NULL;
-      strncpy (activename, value, sizeof (activename));
-      if (!last)
-         last = -1;             // Redisplay
-      if (pushed)
-         pushed = uptime ();
-      xSemaphoreGive (mutex);
+      setactive (value);
+      return "";
    }
    return NULL;
 }
@@ -352,8 +371,6 @@ app_main ()
          if (last)
          {                      // Show status as was showing idle
             xSemaphoreTake (mutex, portMAX_DELAY);
-            if (*activename && !active)
-               active = getimage (activename);
             last = 0;
             if (*bellmqtt)
                revk_mqtt_send_raw (bellmqtt, 0, bellmqttpl, 1);
@@ -384,6 +401,8 @@ app_main ()
             gfx_icon2 (gfx_width (), gfx_height (), idle);
          addqr ();
          gfx_unlock ();
+         if (*activename && !active)
+            active = getimage (activename);
          last = now / 60;
          xSemaphoreGive (mutex);
       }
