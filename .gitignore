@@ -12,4 +12,4 @@ build/*
 sdkconfig
 managed_components
 dependencies.lock
-images/*.h
+images/*.mono

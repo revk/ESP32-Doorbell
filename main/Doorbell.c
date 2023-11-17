@@ -20,7 +20,6 @@ static const char TAG[] = "Generic";
 #include "iec18004.h"
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
-#include "images.h"
 
 #ifdef	CONFIG_LWIP_DHCP_DOES_ARP_CHECK
 #warning CONFIG_LWIP_DHCP_DOES_ARP_CHECK means DHCP is slow
@@ -51,12 +50,17 @@ static const char TAG[] = "Generic";
 	io(gfxrst,44)	\
 	io(gfxbusy,46)	\
 	io(gfxena,)	\
-        u8(gfxflip,6)    \
+        u8(gfxflip,6)   \
 	io(bellpush,10)	\
 	u8(holdtime,30)	\
+	s(imageurl)	\
+	s(idlename)	\
 	s(postcode)	\
 	s(bellmqtt)	\
 	s(bellmqttpl)	\
+	s(toot)		\
+	s(tasout)	\
+	s(tasbusy)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
@@ -75,6 +79,10 @@ settings
 uint32_t pushed = 0;
 uint32_t override = 0;
 uint32_t last = -1;
+char activename[20] = "";
+uint8_t *idle = NULL;
+uint8_t *active = NULL;
+static SemaphoreHandle_t mutex = NULL;
 
 static void
 web_head (httpd_req_t * req, const char *title)
@@ -105,6 +113,48 @@ web_root (httpd_req_t * req)
       return revk_web_settings (req);   // Direct to web set up
    web_head (req, *hostname ? hostname : appname);
    return revk_web_foot (req, 0, 1);
+}
+
+uint8_t *
+getimage (char *name)
+{
+   if (!*imageurl || !name || !*name)
+      return NULL;
+   char *url;
+   asprintf (&url, "%s/%s.mono", imageurl, name);
+   const int size = gfx_width () * gfx_height () / 8;
+   uint8_t *buf = mallocspi (size);
+   if (!buf)
+   {
+      free (url);
+      return NULL;
+   }
+   esp_http_client_config_t config = {
+      .url = url,
+      .crt_bundle_attach = esp_crt_bundle_attach,
+   };
+   esp_http_client_handle_t client = esp_http_client_init (&config);
+   if (!client)
+   {
+      free (url);
+      free (buf);
+      return NULL;
+   }
+   int len = 0;
+   if (!esp_http_client_open (client, 0))
+   {
+      if (esp_http_client_fetch_headers (client) >= 0)
+         len = esp_http_client_read_response (client, (char *) buf, size);
+      esp_http_client_close (client);
+   }
+   REVK_ERR_CHECK (esp_http_client_cleanup (client));
+   free (url);
+   if (len != size)
+   {
+      free (buf);
+      return NULL;
+   }
+   return buf;
 }
 
 const char *
@@ -140,8 +190,6 @@ gfx_qr (const char *value, int s)
    return NULL;
 }
 
-const uint8_t *status = image_Wait;
-
 const char *
 app_callback (int client, const char *prefix, const char *target, const char *suffix, jo_t j)
 {
@@ -160,8 +208,10 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       return NULL;              //Not for us or not a command from main MQTT
    if (!strcmp (suffix, "message"))
    {
+      xSemaphoreTake (mutex, portMAX_DELAY);
       override = uptime ();
       gfx_message (value);
+      xSemaphoreGive (mutex);
       return "";
    }
    if (!strcmp (suffix, "cancel"))
@@ -177,16 +227,15 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (!strcmp (suffix, "status"))
    {
-      if (!strcasecmp (value, "wait"))
-         status = image_Wait;
-      else if (!strcasecmp (value, "door"))
-         status = image_Door;
-      else if (!strcasecmp (value, "gate"))
-         status = image_Gate;
+      xSemaphoreTake (mutex, portMAX_DELAY);
+      free (active);
+      active = NULL;
+      strncpy (activename, value, sizeof (activename));
       if (!last)
          last = -1;             // Redisplay
       if (pushed)
          pushed = uptime ();
+      xSemaphoreGive (mutex);
    }
    return NULL;
 }
@@ -215,6 +264,8 @@ push_task (void *arg)
 void
 app_main ()
 {
+   mutex = xSemaphoreCreateBinary ();
+   xSemaphoreGive (mutex);
    revk_boot (&app_callback);
    revk_register ("gfx", 0, sizeof (gfxcs), &gfxcs, "- ", SETTING_SET | SETTING_BITFIELD | SETTING_SECRET);     // Header
 #define io(n,d)           revk_register(#n,0,sizeof(n),&n,"- "#d,SETTING_SET|SETTING_BITFIELD);
@@ -286,39 +337,55 @@ app_main ()
          continue;
       if (pushed + holdtime < up)
          pushed = 0;            // Time out
+      void addqr (void)
+      {
+         if (*postcode)
+         {
+            char temp[200];
+            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
+            gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
+            gfx_qr (temp, 4);
+         }
+      }
       if (pushed)
       {                         // Bell was pushed
          if (last)
          {                      // Show status as was showing idle
+            xSemaphoreTake (mutex, portMAX_DELAY);
+            if (*activename && !active)
+               active = getimage (activename);
             last = 0;
             if (*bellmqtt)
                revk_mqtt_send_raw (bellmqtt, 0, bellmqttpl, 1);
             gfx_lock ();
             gfx_clear (0);
             gfx_pos (0, 0, 0);
-            gfx_icon2 (480, 800, status);
-            char temp[200];
-            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
-            gfx_pos (8, gfx_height () - 1 - 8, GFX_B | GFX_L);
-            gfx_qr (temp, 4);
-            gfx_pos (120, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
-            gfx_text (5, "CONFIRMATION");
-            gfx_text (5, "PHOTO  %02d-%02d", t.tm_hour, t.tm_min);
-            gfx_text (5, "DELIVERY");
+            if (!active)
+               gfx_message ("PLEASE/WAIT");
+            else
+               gfx_icon2 (gfx_width (), gfx_height (), active);
+            addqr ();
             gfx_unlock ();
+            xSemaphoreGive (mutex);
          }
       } else if (last != now / 60)
       {                         // Show idle
+         xSemaphoreTake (mutex, portMAX_DELAY);
+         if (*idlename && !idle)
+            idle = getimage (idlename);
          gfx_lock ();
          if (!last || !t.tm_min)
             gfx_refresh ();
          gfx_clear (0);
          gfx_pos (0, 0, 0);
-         gfx_icon2 (480, 800, image_Idle);
-         gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
-         gfx_text (6, "%02d:%02d", t.tm_hour, t.tm_min);
+         if (!idle)
+            gfx_message ("RING/THE/BELL");
+         else
+            gfx_icon2 (gfx_width (), gfx_height (), idle);
+         addqr ();
          gfx_unlock ();
          last = now / 60;
+         xSemaphoreGive (mutex);
       }
    }
 }
