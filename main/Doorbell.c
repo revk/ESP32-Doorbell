@@ -143,8 +143,7 @@ setactive (char *value)
    free (active);
    active = NULL;
    strncpy (activename, value, sizeof (activename));
-   if (*activename)
-      active = getimage (activename);
+   active = getimage (activename);
    if (!last)
       last = -1;                // Redisplay
    if (pushed)
@@ -206,7 +205,7 @@ web_active (httpd_req_t * req)
          q++;
       setactive (q);
    }
-   return web_root(req);
+   return web_root (req);
 }
 
 
@@ -426,9 +425,9 @@ app_main ()
          ESP_LOGE (TAG, "WiFi Connected");
          wifiinit = 0;
          xSemaphoreTake (mutex, portMAX_DELAY);
-         if (*idlename && !idle)
+         if (!idle)
             idle = getimage (idlename);
-         if (*activename && !active)
+         if (!active)
             active = getimage (activename);
          xSemaphoreGive (mutex);
       }
@@ -461,7 +460,7 @@ app_main ()
          if (last)
          {                      // Show status as was showing idle
             xSemaphoreTake (mutex, portMAX_DELAY);
-            if (*activename && !active)
+            if (!active)
                active = getimage (activename);
             last = 0;
             if (*tasbell)
@@ -493,7 +492,7 @@ app_main ()
       } else if (last != now / 60)
       {                         // Show idle
          xSemaphoreTake (mutex, portMAX_DELAY);
-         if (*idlename && !idle)
+         if (!idle)
             idle = getimage (idlename);
          gfx_lock ();
          if (!last || !t.tm_min)
@@ -507,6 +506,21 @@ app_main ()
          addqr ();
          gfx_unlock ();
          last = now / 60;
+         if (!t.tm_min)
+         {                      // Pick up new images anyway if possible
+            uint8_t *newidle = getimage (idlename);
+            if (newidle)
+            {
+               free (idle);
+               idle = newidle;
+            }
+            uint8_t *newactive = getimage (activename);
+            if (newactive)
+            {
+               free (active);
+               active = newactive;
+            }
+         }
          xSemaphoreGive (mutex);
       }
    }
