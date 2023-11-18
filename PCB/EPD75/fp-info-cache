@@ -1,4 +1,4 @@
-22272590364658346
+22274290691154417
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -84867,6 +84867,13 @@ VEML6040
 0
 4
 4
+RevK
+XUNPU-FPC-05FB-24PH20
+
+
+0
+26
+26
 Rotary_Encoder
 RotaryEncoder_Alps_EC11E-Switch_Vertical_H20mm
 Alps rotary encoder, EC12E... with switch, vertical shaft, http://www.alps.com/prod/info/E/HTML/Encoder/Incremental/EC11/EC11E15204A3.html
