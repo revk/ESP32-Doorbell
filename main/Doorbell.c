@@ -82,54 +82,67 @@ char activename[20] = "Wait";
 uint8_t *idle = NULL;
 uint8_t *active = NULL;
 SemaphoreHandle_t mutex = NULL;
-char wifiinit = 0;
 char mqttinit = 0;
 char tasoutstate = 0;
 char tasbusystate = 0;
 
 uint8_t *
-getimage (char *name)
+getimage (char *name, uint8_t * prev)
 {
-   if (!*imageurl || !name || !*name)
-      return NULL;
+   if (!*imageurl || !name || !*name || revk_link_down ())
+      return prev;
    char *url;
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
-      return NULL;
-   ESP_LOGE (TAG, "Get %s", url);
+      return prev;
+   ESP_LOGD (TAG, "Get %s", url);
    const int size = gfx_width () * gfx_height () / 8;
-   uint8_t *buf = mallocspi (size);
-   if (!buf)
-   {
-      free (url);
-      return NULL;
-   }
+   int len = 0;
+   uint8_t *buf = NULL;
    esp_http_client_config_t config = {
       .url = url,
       .crt_bundle_attach = esp_crt_bundle_attach,
    };
    esp_http_client_handle_t client = esp_http_client_init (&config);
-   if (!client)
+   if (client)
    {
-      free (url);
-      free (buf);
-      return NULL;
+      if (!esp_http_client_open (client, 0))
+      {
+         if (esp_http_client_fetch_headers (client) == size)
+         {
+            buf = mallocspi (size);
+            if (buf)
+               len = esp_http_client_read_response (client, (char *) buf, size);
+         }
+         esp_http_client_close (client);
+      }
+      esp_http_client_cleanup (client);
    }
-   int len = 0;
-   if (!esp_http_client_open (client, 0))
-   {
-      if (esp_http_client_fetch_headers (client) >= 0)
-         len = esp_http_client_read_response (client, (char *) buf, size);
-      esp_http_client_close (client);
-   }
-   REVK_ERR_CHECK (esp_http_client_cleanup (client));
-   free (url);
    if (len != size)
    {
+      jo_t j = jo_object_alloc ();
+      jo_string (j, "name", name);
+      jo_string (j, "url", url);
+      if (len)
+      {
+         jo_int (j, "len", len);
+         jo_int (j, "expect", size);
+      }
+      revk_error ("image", &j);
+      free (url);
       free (buf);
-      return NULL;
+      return prev;
    }
-   ESP_LOGE (TAG, "Image loaded %s", name);
+   if (!prev || memcmp (prev, buf, len))
+   {                            // New image
+      jo_t j = jo_object_alloc ();
+      jo_string (j, "name", name);
+      jo_string (j, "url", url);
+      jo_int (j, "len", len);
+      revk_info ("image", &j);
+   }
+   free (url);
+   free (prev);
    return buf;
 }
 
@@ -143,7 +156,7 @@ setactive (char *value)
    free (active);
    active = NULL;
    strncpy (activename, value, sizeof (activename));
-   active = getimage (activename);
+   active = getimage (activename, active);
    if (!last)
       last = -1;                // Redisplay
    if (pushed)
@@ -305,11 +318,6 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
       return NULL;              //Not for us or not a command from main MQTT
-   if (!strcmp (suffix, "wifi"))
-   {
-      wifiinit = 1;
-      return "";
-   }
    if (!strcmp (suffix, "connect"))
    {
       mqttinit = 1;
@@ -413,6 +421,7 @@ app_main ()
    gfx_lock ();
    gfx_clear (255);             // Black
    gfx_unlock ();
+   uint8_t day = 0;
    while (1)
    {
       usleep (100000);
@@ -420,15 +429,12 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
-      if (wifiinit)
+      if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
-         ESP_LOGE (TAG, "WiFi Connected");
-         wifiinit = 0;
+         day = t.tm_mday;
          xSemaphoreTake (mutex, portMAX_DELAY);
-         if (!idle)
-            idle = getimage (idlename);
-         if (!active)
-            active = getimage (activename);
+         idle = getimage (idlename, idle);
+         active = getimage (activename, active);
          xSemaphoreGive (mutex);
       }
       if (mqttinit)
@@ -461,7 +467,7 @@ app_main ()
          {                      // Show status as was showing idle
             xSemaphoreTake (mutex, portMAX_DELAY);
             if (!active)
-               active = getimage (activename);
+               active = getimage (activename, active);
             last = 0;
             if (*tasbell)
             {
@@ -493,7 +499,7 @@ app_main ()
       {                         // Show idle
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
-            idle = getimage (idlename);
+            idle = getimage (idlename, idle);
          gfx_lock ();
          if (!last || !t.tm_min)
             gfx_refresh ();
@@ -507,21 +513,6 @@ app_main ()
          gfx_unlock ();
          last = now / 60;
          xSemaphoreGive (mutex);
-         if (t.tm_year > 100 && !t.tm_min)
-         {                      // Pick up new images anyway if possible
-            uint8_t *newidle = getimage (idlename);
-            if (newidle)
-            {
-               free (idle);
-               idle = newidle;
-            }
-            uint8_t *newactive = getimage (activename);
-            if (newactive)
-            {
-               free (active);
-               active = newactive;
-            }
-         }
       }
    }
 }
