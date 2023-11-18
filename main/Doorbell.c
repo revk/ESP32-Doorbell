@@ -506,6 +506,7 @@ app_main ()
          addqr ();
          gfx_unlock ();
          last = now / 60;
+         xSemaphoreGive (mutex);
          if (t.tm_year > 100 && !t.tm_min)
          {                      // Pick up new images anyway if possible
             uint8_t *newidle = getimage (idlename);
@@ -521,7 +522,6 @@ app_main ()
                active = newactive;
             }
          }
-         xSemaphoreGive (mutex);
       }
    }
 }
