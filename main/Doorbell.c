@@ -276,12 +276,9 @@ gfx_qr (const char *value, int s)
       return "Too wide";
    }
    ESP_LOGD (TAG, "QR %d/%d %d", w, h, s);
-   int ox = gfx_x ();
-   int oy = gfx_y ();
-   if (gfx_a () & GFX_B)
-      oy -= s * width;
-   if (gfx_a () & GFX_R)
-      ox -= s * width;
+   gfx_pos_t ox,
+     oy;
+   gfx_draw (width * s, width * s, 0, 0, &ox, &oy);
    for (int y = 0; y < width; y++)
       for (int x = 0; x < width; x++)
          if (qr[width * y + x] & QR_TAG_BLACK)
@@ -474,7 +471,7 @@ app_main ()
          {
             char temp[200];
             sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
-            gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L);
+            gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
             gfx_qr (temp, 4);
          }
       }
@@ -527,6 +524,8 @@ app_main ()
          else
             gfx_icon2 (gfx_width (), gfx_height (), idle);
          addqr ();
+         gfx_pos (gfx_x (), gfx_y () - 4 * 4, gfx_a ());
+         gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          last = now / 60;
          xSemaphoreGive (mutex);
