@@ -1,4 +1,4 @@
-22272590361313157
+22272590364658346
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -83440,13 +83440,6 @@ RevK
 3
 3
 RevK
-24_Pins_0.5mm_Pitch_ZIF_Connector_UP
-
-
-0
-26
-25
-RevK
 AA
 
 
@@ -83768,6 +83761,13 @@ Single 2.4 GHz Wi-Fi and Bluetooth combo  chip
 0
 55
 39
+RevK
+HRS-FH12-24S-0.5SH-Face-Down
+
+
+0
+26
+26
 RevK
 Hidden
 
