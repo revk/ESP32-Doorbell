@@ -6,7 +6,7 @@
 PROJECT_NAME := Doorbell
 SUFFIX := $(shell components/ESP32-RevK/buildsuffix)
 
-all:	$(patsubst %.png,%.mono,$(wildcard images/*.png))
+all:
 	@echo Make: $(PROJECT_NAME)$(SUFFIX).bin
 	@idf.py build
 	@cp build/$(PROJECT_NAME).bin $(PROJECT_NAME)$(SUFFIX).bin
@@ -26,9 +26,6 @@ set:    gd7965
 gd7965:
 	components/ESP32-RevK/setbuildsuffix -S3-MINI-N4-R2-GD7965
 	@make
-
-images/%.mono:   images/%.png
-	convert $< -dither None -monochrome $@
 
 flash:
 	idf.py flash
