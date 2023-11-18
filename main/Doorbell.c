@@ -422,7 +422,6 @@ app_main ()
       register_get_uri ("/active", web_active);
       revk_web_settings_add (webserver);
    }
-
    {
     const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct:1);
       if (e)
