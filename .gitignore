@@ -13,3 +13,4 @@ sdkconfig
 managed_components
 dependencies.lock
 images/*.mono
+*-backups/
