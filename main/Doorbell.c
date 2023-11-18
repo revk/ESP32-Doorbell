@@ -221,6 +221,23 @@ web_active (httpd_req_t * req)
    return web_root (req);
 }
 
+static esp_err_t
+web_message (httpd_req_t * req)
+{
+   size_t l = httpd_req_get_url_query_len (req);
+   char query[200];
+   if (l > 0 && l < sizeof (query) && !httpd_req_get_url_query_str (req, query, sizeof (query)))
+   {
+      char *q = query;
+      if (*q == '?')
+         q++;
+      xSemaphoreTake (mutex, portMAX_DELAY);
+      override = uptime ();
+      gfx_message (q);
+      xSemaphoreGive (mutex);
+   }
+   return web_root (req);
+}
 
 static void
 register_uri (const httpd_uri_t * uri_struct)
@@ -395,12 +412,13 @@ app_main ()
 
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
-   config.max_uri_handlers = 4 + revk_num_web_handlers ();
+   config.max_uri_handlers = 5 + revk_num_web_handlers ();
    if (!httpd_start (&webserver, &config))
    {
       register_get_uri ("/", web_root);
       register_get_uri ("/apple-touch-icon.png", web_icon);
       register_get_uri ("/push", web_push);
+      register_get_uri ("/message", web_message);
       register_get_uri ("/active", web_active);
       revk_web_settings_add (webserver);
    }
