@@ -506,7 +506,7 @@ app_main ()
          addqr ();
          gfx_unlock ();
          last = now / 60;
-         if (!t.tm_min)
+         if (t.tm_year > 100 && !t.tm_min)
          {                      // Pick up new images anyway if possible
             uint8_t *newidle = getimage (idlename);
             if (newidle)
