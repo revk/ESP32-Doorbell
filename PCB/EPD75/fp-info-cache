@@ -1,4 +1,4 @@
-22274290691154417
+22277746333450923
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -84084,6 +84084,13 @@ PTSM-HH-2-RA
 2
 2
 RevK
+PTSM-HH-2-RA-SMD
+
+
+0
+4
+2
+RevK
 PTSM-HH-2-RA-W
 
 
@@ -84748,6 +84755,13 @@ net tie solder jumper bridged
 0
 3
 3
+RevK
+SolderPad
+Through hole angled pin header, 1x01, 2.54mm pitch, 6mm pin length, single row
+Through hole angled pin header THT 1x01 2.54mm single row
+0
+1
+1
 RevK
 Special-SOP-4-3.7x4.55
 
