@@ -50,9 +50,10 @@ static const char TAG[] = "Generic";
 	io(gfxrst,44)	\
 	io(gfxbusy,46)	\
 	io(gfxena,)	\
-        u8(gfxflip,6)   \
 	io(bellpush,10)	\
+        u8(gfxflip,6)   \
 	u8(holdtime,30)	\
+	b(invert)	\
 	s(imageurl)	\
 	s(idlename)	\
 	s(postcode)	\
@@ -420,7 +421,7 @@ app_main ()
       revk_web_settings_add (webserver);
    }
    {
-    const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct:1);
+    const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct: 1, invert:invert);
       if (e)
       {
          ESP_LOGE (TAG, "gfx %s", e);
