@@ -23,7 +23,7 @@ issue:
 
 set:    epd75
 
-gd7965:
+epd75:
 	components/ESP32-RevK/setbuildsuffix -S3-MINI-N4-R2-EPD75
 	@make
 
