@@ -533,8 +533,7 @@ app_main ()
             gfx_pos (0, 0, 0);
             if (!active)
                gfx_message ("PLEASE/WAIT");
-            else
-               gfx_icon2 (gfx_width (), gfx_height (), active);
+            else gfx_load(active);
             addqr ();
             gfx_unlock ();
             xSemaphoreGive (mutex);
@@ -560,8 +559,7 @@ app_main ()
          gfx_pos (0, 0, 0);
          if (!idle)
             gfx_message ("RING/THE/BELL");
-         else
-            gfx_icon2 (gfx_width (), gfx_height (), idle);
+         else gfx_load(idle);
          addqr ();
          gfx_pos (gfx_width () - 1, gfx_height () - 1, GFX_R | GFX_B);
          gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
