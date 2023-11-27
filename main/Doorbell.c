@@ -56,7 +56,7 @@ static const char TAG[] = "Generic";
 	u8(leds,0)	\
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
-	b(invert)	\
+	b(gfxinvert)	\
 	s(imageurl)	\
 	s(idlename)	\
 	s(postcode)	\
@@ -442,7 +442,7 @@ app_main ()
       revk_web_settings_add (webserver);
    }
    {
-    const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct: 1, invert:invert);
+    const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct: 1, invert:gfxinvert);
       if (e)
       {
          ESP_LOGE (TAG, "gfx %s", e);
@@ -546,7 +546,7 @@ app_main ()
          else
             gfx_icon2 (gfx_width (), gfx_height (), idle);
          addqr ();
-         gfx_pos (gfx_x (), gfx_y () - 4 * 4, gfx_a ());
+         gfx_pos (gfx_width () - 1, gfx_height () - 1, GFX_R | GFX_B);
          gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          last = now / 60;
