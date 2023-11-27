@@ -43,14 +43,17 @@ static const char TAG[] = "Generic";
 // Dynamic
 
 #define	settings		\
-	io(gfxmosi,36)	\
-	io(gfxsck,38)	\
-	io(gfxcs,40)	\
-	io(gfxdc,42)	\
-	io(gfxrst,44)	\
-	io(gfxbusy,46)	\
 	io(gfxena,)	\
-	io(bellpush,10)	\
+	io(btn2,42)	\
+	io(btn1,41)	\
+	io(gfxmosi,40)	\
+	io(gfxsck,39)	\
+	io(gfxcs,38)	\
+	io(gfxdc,37)	\
+	io(gfxrst,36)	\
+	io(gfxbusy,35)	\
+	io(rgb,34)	\
+	u8(leds,0)	\
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
 	b(invert)	\
@@ -86,6 +89,7 @@ SemaphoreHandle_t mutex = NULL;
 char mqttinit = 0;
 char tasoutstate = 0;
 char tasbusystate = 0;
+led_strip_handle_t strip = NULL;
 
 uint8_t *
 getimage (char *name, uint8_t * prev)
@@ -375,11 +379,11 @@ void
 push_task (void *arg)
 {
 
-   gpio_reset_pin (port_mask (bellpush));
-   gpio_set_direction (port_mask (bellpush), GPIO_MODE_INPUT);
+   gpio_reset_pin (port_mask (btn1));
+   gpio_set_direction (port_mask (btn1), GPIO_MODE_INPUT);
    while (1)
    {
-      uint8_t l = gpio_get_level (port_mask (bellpush));
+      uint8_t l = gpio_get_level (port_mask (btn1));
       if (!l)
          pushed = uptime ();
       usleep (10000);
@@ -407,6 +411,23 @@ app_main ()
 #undef b
 #undef s
       revk_start ();
+
+   if (leds)
+   {
+      led_strip_config_t strip_config = {
+         .strip_gpio_num = (port_mask (rgb)),
+         .max_leds = leds,
+         .led_pixel_format = LED_PIXEL_FORMAT_GRB,      // Pixel format of your LED strip
+         .led_model = LED_MODEL_WS2812, // LED strip model
+         .flags.invert_out = ((rgb & PORT_INV) ? 1 : 0),        // whether to invert the output signal (useful when your hardware has a level inverter)
+      };
+      led_strip_rmt_config_t rmt_config = {
+         .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
+         .resolution_hz = 10 * 1000 * 1000,     // 10MHz
+         .flags.with_dma = true,
+      };
+      REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &strip));
+   }
 
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
