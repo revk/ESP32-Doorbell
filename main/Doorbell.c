@@ -44,8 +44,8 @@ static const char TAG[] = "Generic";
 
 #define	settings		\
 	io(gfxena,)	\
-	io(btn2,42)	\
-	io(btn1,41)	\
+	io(btn2,-42)	\
+	io(btn1,-41)	\
 	io(gfxmosi,40)	\
 	io(gfxsck,39)	\
 	io(gfxcs,38)	\
@@ -53,7 +53,7 @@ static const char TAG[] = "Generic";
 	io(gfxrst,36)	\
 	io(gfxbusy,35)	\
 	io(rgb,34)	\
-	u8(leds,0)	\
+	u8(leds,4)	\
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
 	b(gfxinvert)	\
@@ -82,6 +82,7 @@ settings
 uint32_t pushed = 0;
 uint32_t override = 0;
 uint32_t last = -1;
+uint32_t colour = 0x0000FF;
 char activename[20] = "Wait";
 uint8_t *idle = NULL;
 uint8_t *active = NULL;
@@ -152,11 +153,23 @@ getimage (char *name, uint8_t * prev)
 }
 
 void
-setactive (char *value)
+setleds (uint32_t c)
 {
+   //ESP_LOGE (TAG, "Colour %06lX%s", c, strip ? "" : " (not initialised)");
+   if (!strip)
+      return;
+   for (int i = 0; i < leds; i++)
+      led_strip_set_pixel (strip, i, c >> 16, c >> 8 & 255, c & 255);
+   led_strip_refresh (strip);
+}
+
+void
+setactive (char *value, uint32_t setcolour)
+{
+   colour = setcolour;
    if (!strcmp (activename, value))
       return;
-   ESP_LOGE (TAG, "Setting active %s", value);
+   ESP_LOGE (TAG, "Setting active %s %06lX", value,setcolour);
    xSemaphoreTake (mutex, portMAX_DELAY);
    free (active);
    active = NULL;
@@ -221,7 +234,7 @@ web_active (httpd_req_t * req)
       char *q = query;
       if (*q == '?')
          q++;
-      setactive (q);
+      setactive (q, 0x0000FF);
    }
    return web_root (req);
 }
@@ -332,7 +345,8 @@ app_callback (int client, const char *prefix, const char *target, const char *su
             tasoutstate = !jo_strcmp (j, "OFF");        // Off means we are out
          else if (!strcmp (target, tasbusy))
             tasbusystate = !jo_strcmp (j, "OFF");       // Off means we are busy
-         setactive (tasoutstate ? "Gate" : tasbusystate ? "Door" : "Wait");
+         setactive (tasoutstate ? "Gate" : tasbusystate ? "Door" : "Wait",
+                    tasoutstate ? 0xFF0000 : tasbusystate ? 0xFFFF00 : 0x00FF00);
       }
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
@@ -363,7 +377,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (!strcmp (suffix, "status"))
    {
-      setactive (value);
+      setactive (value, 0x0000FF);
       return "";
    }
    return NULL;
@@ -427,6 +441,7 @@ app_main ()
          .flags.with_dma = true,
       };
       REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &strip));
+      setleds(0xFF00FF);
    }
 
    // Web interface
@@ -501,6 +516,7 @@ app_main ()
       {                         // Bell was pushed
          if (last)
          {                      // Show status as was showing idle
+            setleds (colour);
             xSemaphoreTake (mutex, portMAX_DELAY);
             if (!active)
                active = getimage (activename, active);
@@ -533,6 +549,7 @@ app_main ()
          }
       } else if (last != now / 60)
       {                         // Show idle
+         setleds (0);
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
             idle = getimage (idlename, idle);
