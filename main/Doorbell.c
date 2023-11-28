@@ -566,7 +566,7 @@ app_main ()
          else
             gfx_load (idle);
          addqr ();
-         gfx_pos (gfx_width () - 1, gfx_height () - 1, GFX_R | GFX_B);
+         gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B); // Yes slightly in from edge
          gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          last = now / 60;
