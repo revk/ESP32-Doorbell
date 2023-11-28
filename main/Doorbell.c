@@ -170,14 +170,12 @@ void
 setactive (char *value, uint32_t setcolour)
 {
    colour = setcolour;
-   if (!strcmp (activename, value))
+   if (!value || !strcmp (activename, value))
       return;
-   ESP_LOGE (TAG, "Setting active %s %06lX", value, setcolour);
    xSemaphoreTake (mutex, portMAX_DELAY);
+   strncpy (activename, value, sizeof (activename));
    free (active);
    active = NULL;
-   strncpy (activename, value, sizeof (activename));
-   active = getimage (activename, active);
    if (!last)
       last = -1;                // Redisplay
    if (pushed)
@@ -566,7 +564,7 @@ app_main ()
          else
             gfx_load (idle);
          addqr ();
-         gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B); // Yes slightly in from edge
+         gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B);  // Yes slightly in from edge
          gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          last = now / 60;
