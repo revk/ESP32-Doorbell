@@ -57,19 +57,23 @@ static const char TAG[] = "Generic";
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
 	b(gfxinvert)	\
-	s(imageurl)	\
-	s(idlename)	\
-	s(postcode)	\
-	s(toot)		\
-	s(tasout)	\
-	s(tasbusy)	\
-	s(tasbell)	\
+	s(imageurl,)	\
+	s(idlename,Example)	\
+	s(xmasname,ExampleX)	\
+	s(waitname,Wait)	\
+	s(busyname,Busy)	\
+	s(awayname,Away)	\
+	s(postcode,)	\
+	s(toot,)		\
+	s(tasaway,)	\
+	s(tasbusy,)	\
+	s(tasbell,)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
 #define u8(n,d) uint8_t n;
 #define b(n) uint8_t n;
-#define s(n) char * n;
+#define s(n,d) char * n;
 #define io(n,d)           uint16_t n;
 settings
 #undef io
@@ -83,12 +87,12 @@ uint32_t pushed = 0;
 uint32_t override = 0;
 uint32_t last = -1;
 uint32_t colour = 0x0000FF;
-char activename[20] = "Wait";
+char activename[20] = "";
 uint8_t *idle = NULL;
 uint8_t *active = NULL;
 SemaphoreHandle_t mutex = NULL;
 char mqttinit = 0;
-char tasoutstate = 0;
+char tasawaystate = 0;
 char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 
@@ -342,12 +346,12 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       jo_rewind (j);
       if (jo_find (j, "POWER") == JO_STRING)
       {                         // "ON" or "OFF"
-         if (!strcmp (target, tasout))
-            tasoutstate = !jo_strcmp (j, "OFF");        // Off means we are out
+         if (!strcmp (target, tasaway))
+            tasawaystate = !jo_strcmp (j, "OFF");       // Off means we are away
          else if (!strcmp (target, tasbusy))
             tasbusystate = !jo_strcmp (j, "OFF");       // Off means we are busy
-         setactive (tasoutstate ? "Gate" : tasbusystate ? "Door" : "Wait",
-                    tasoutstate ? 0xFF0000 : tasbusystate ? 0xFFFF00 : 0x00FF00);
+         setactive (tasawaystate ? awayname : tasbusystate ? busyname : waitname,
+                    tasawaystate ? 0xFF0000 : tasbusystate ? 0xFFFF00 : 0x00FF00);
       }
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
@@ -417,7 +421,7 @@ app_main ()
 #define u32(n,d) revk_register(#n,0,sizeof(n),&n,#d,0);
 #define s8(n,d) revk_register(#n,0,sizeof(n),&n,#d,SETTING_SIGNED);
 #define u8(n,d) revk_register(#n,0,sizeof(n),&n,#d,0);
-#define s(n) revk_register(#n,0,0,&n,NULL,0);
+#define s(n,d) revk_register(#n,0,0,&n,#d,0);
    settings
 #undef io
 #undef u32
@@ -426,6 +430,7 @@ app_main ()
 #undef b
 #undef s
       revk_start ();
+   setactive (waitname, 0x0000FF);
 
    if (leds)
    {
@@ -481,11 +486,14 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
+      char *basename = idlename;        // The idle name, seasonally adjusted
+      if (t.tm_mon == 11 && t.tm_mday <= 25)
+         basename = xmasname;
       if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
          day = t.tm_mday;
          xSemaphoreTake (mutex, portMAX_DELAY);
-         idle = getimage (idlename, idle);
+         idle = getimage (basename, idle);
          active = getimage (activename, active);
          xSemaphoreGive (mutex);
       }
@@ -494,7 +502,7 @@ app_main ()
          ESP_LOGE (TAG, "MQTT Connected");
          mqttinit = 0;
          last = -1;
-         tassub (tasout);
+         tassub (tasaway);
          tassub (tasbusy);
       }
       if (override + holdtime < up)
@@ -553,7 +561,7 @@ app_main ()
          setleds (0);
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
-            idle = getimage (idlename, idle);
+            idle = getimage (basename, idle);
          gfx_lock ();
          if (!last || !t.tm_min)
             gfx_refresh ();
@@ -568,6 +576,8 @@ app_main ()
          gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          last = now / 60;
+         if (!active)
+            active = getimage (activename, active);     // Just in case
          xSemaphoreGive (mutex);
       }
    }
