@@ -382,7 +382,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       pushed = uptime ();
       return "";
    }
-   if (!strcmp (suffix, "status"))
+   if (!strcmp (suffix, "active"))
    {
       setactive (value, 0x0000FF);
       return "";
