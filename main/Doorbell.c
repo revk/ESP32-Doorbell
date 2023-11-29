@@ -58,16 +58,18 @@ static const char TAG[] = "Generic";
 	u8(holdtime,30)	\
 	b(gfxinvert)	\
 	s(imageurl,)	\
-	s(idlename,Example)	\
-	s(xmasname,ExampleX)	\
-	s(waitname,Wait)	\
-	s(busyname,Busy)	\
-	s(awayname,Away)	\
+	s(imageidle,Example)	\
+	s(imagexmas,)	\
+	s(imageyear,)	\
+	s(imagehall,)	\
+	s(imagewait,Wait)	\
+	s(imagebusy,Busy)	\
+	s(imageaway,Away)	\
 	s(postcode,)	\
 	s(toot,)		\
+	s(tasbell,)	\
 	s(tasaway,)	\
 	s(tasbusy,)	\
-	s(tasbell,)	\
 
 #define u32(n,d)        uint32_t n;
 #define s8(n,d) int8_t n;
@@ -350,7 +352,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
             tasawaystate = !jo_strcmp (j, "OFF");       // Off means we are away
          else if (!strcmp (target, tasbusy))
             tasbusystate = !jo_strcmp (j, "OFF");       // Off means we are busy
-         setactive (tasawaystate ? awayname : tasbusystate ? busyname : waitname,
+         setactive (tasawaystate ? imageaway : tasbusystate ? imagebusy : imagewait,
                     tasawaystate ? 0xFF0000 : tasbusystate ? 0xFFFF00 : 0x00FF00);
       }
    }
@@ -416,6 +418,8 @@ app_main ()
    xSemaphoreGive (mutex);
    revk_boot (&app_callback);
    revk_register ("gfx", 0, sizeof (gfxcs), &gfxcs, "- ", SETTING_SET | SETTING_BITFIELD | SETTING_SECRET);     // Header
+   revk_register ("image", 0, 0, &imageurl, "http://ota.revk.uk/Doorbell", SETTING_SECRET);     // Header
+   revk_register ("tas", 0, 0, &tasbell, NULL, SETTING_SECRET); // Header
 #define io(n,d)           revk_register(#n,0,sizeof(n),&n,"- "#d,SETTING_SET|SETTING_BITFIELD);
 #define b(n) revk_register(#n,0,sizeof(n),&n,NULL,SETTING_BOOLEAN);
 #define u32(n,d) revk_register(#n,0,sizeof(n),&n,#d,0);
@@ -430,7 +434,7 @@ app_main ()
 #undef b
 #undef s
       revk_start ();
-   setactive (waitname, 0x0000FF);
+   setactive (imagewait, 0x0000FF);
 
    if (leds)
    {
@@ -486,9 +490,13 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
-      char *basename = idlename;        // The idle name, seasonally adjusted
-      if (t.tm_mon == 11 && t.tm_mday <= 25)
-         basename = xmasname;
+      char *basename = imageidle;       // The idle name, seasonally adjusted
+      if (*imagexmas && t.tm_mon == 11 && t.tm_mday <= 25)
+         basename = imagexmas;
+      if (*imageyear && t.tm_mon == 0 && t.tm_mday <= 7)
+         basename = imageyear;
+      if (*imagehall && t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
+         basename = imagehall;
       if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
          day = t.tm_mday;
