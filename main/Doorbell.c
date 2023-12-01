@@ -169,7 +169,7 @@ image_load (const char *name, const uint8_t * image, char c)
    if (name && *name && name[1] == ':')
       c = *name;
    if (strip)
-   { // This is limited power mix
+   {                            // This is limited power mix
       uint8_t r = (c == 'R' ? 0xFF : c == 'M' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
       uint8_t g = (c == 'G' ? 0xFF : c == 'C' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
       uint8_t b = (c == 'B' ? 0xFF : c == 'C' || c == 'M' ? 0x80 : c == 'W' ? 0x55 : 0);
@@ -575,16 +575,6 @@ app_main ()
                revk_mqtt_send_raw (topic, 0, "ON", 1);
                free (topic);
             }
-            gfx_lock ();
-            gfx_clear (0);
-            gfx_pos (0, 0, 0);
-            if (!active)
-               gfx_message ("PLEASE/WAIT");
-            else
-               image_load (activename, active, 'B');
-            addqr ();
-            gfx_unlock ();
-            xSemaphoreGive (mutex);
             if (*toot)
             {
                char *pl = NULL;
@@ -593,6 +583,15 @@ app_main ()
                revk_mqtt_send_raw ("toot", 0, pl, 1);
                free (pl);
             }
+            gfx_lock ();
+            // These do a gfx_clear or replace whole buffer anyway
+            if (!active)
+               gfx_message ("PLEASE/WAIT");
+            else
+               image_load (activename, active, 'B');
+            addqr ();
+            gfx_unlock ();
+            xSemaphoreGive (mutex);
          }
       } else if (last != now / 60)
       {                         // Show idle
@@ -602,8 +601,7 @@ app_main ()
          gfx_lock ();
          if (!last || !t.tm_min)
             gfx_refresh ();
-         gfx_clear (0);
-         gfx_pos (0, 0, 0);
+         // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
             gfx_message ("RING/THE/BELL");
          else
