@@ -81,7 +81,7 @@ In addition to commands defined in the *RevK* library, there are a number of spe
 |Command|Meaning|
 |-------|-------|
 |`active`|Set the current active image name|
-|`push`|Activate the bell pushed state and display active message|
+|`push`|Activate the bell pushed state and display active message, if a payload is provided this does a one off image display using the payload as image name (and colour prefix)|
 |`cancel`|Cancel the current active image and revert to idle image|
 |`message`|Display a text message, the payload, separate lines using `/`. This is displated for the current hold time|
 
@@ -91,6 +91,6 @@ Web hooks allow similar commands without the use of MQTT. These make use of a qu
 
 |URL|Meaning|
 |---|-------|
-|`/push`|Activate the bell pushed state and display active message|
+|`/push`|Activate the bell pushed state and display active message, if a query is provided this does a one off image display using the payload as image name (and colour prefix)|
 |`/active`|Set the current active image name|
 |`/message`|Display a text message, the payload, separate lines using `/`. This is displated for the current hold time|
