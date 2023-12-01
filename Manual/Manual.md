@@ -35,11 +35,17 @@ Note that if the switch state changes whilst the active image is displayed, it c
 
 The idle and active images have an overlay of a QR code on the bottom left if the `postcode` setting is set. This encodes the date/time (to minute) and postcode. It is intended for a delivery confirmation photo. Ideally allow 100x100 pixels for this in designs of images. Note a small time (HH:MM) is shown bottom right on the idle image.
 
+## LEDs
+
+The rear LEDs show a colour related to an image - this is by default black (off) when idle and blue when active.
+
+However, if the image file name is prefixed with a letter and `:` then this is used to set the colour for that image. E.g. an active image name of `R:HoHoHo` would load `HoHoHo.mono`, and when displayed show red LEDs.
+
 ## Image files
 
-The image files are loaded from a web server. The `imageurl` setting is used to set this. It is recommented that `http://` is used rather than `https://` - this is for performance and memory reasons. For security and reliability it is recommended the server be on the local network, e.g. a Raspberry pi.
+The image files are loaded from a web server. The `imageurl` setting is used to set this. It is recommended that `http://` is used rather than `https://` - this is for performance and memory reasons. For security and reliability it is recommended the server be on the local network, e.g. a Raspberry pi.
 
-The files are loaded from the `imageurl` with `/` and the image name and `.mono`. The file itself is expected to be a 48000 byte binary image file for 480 x 800 epaper panel. Note that the panel is normally mounted landscape, so this file needs to have been rotated. To convert an 800x480 `png` to a `mono` file use *ImageMagick*, e.g.
+The files are loaded from the `imageurl` with `/` and the image name and `.mono`. The image name has any colour prefix removed first. The file itself is expected to be a 48000 byte binary image file for 480 x 800 epaper panel. Note that the panel is normally mounted landscape, so this file needs to have been rotated. To convert an 800x480 `png` to a `mono` file use *ImageMagick*, e.g.
 
 `convert `*sourcepng*` -dither None -monochrome -rotate -90 -depth 1 GRAY:`*targetmono*
 
@@ -47,7 +53,7 @@ The files are loaded from the `imageurl` with `/` and the image name and `.mono`
 
 Settings can be changed via MQTT as per the [RevK library](https://github.com/revk/ESP32-RevK). You can change a setting by using the topic `setting/Doorbell`. Not that `Doorbell` is all units, and can instead be the *hostname* or *MAC address* of a specific unit. You can set an individual setting, e.g. `setting/Doorbell/imageidle Example`, or use JSON to set multiple settings, e.g. `setting/Doorbell {"image":{"idle":"Example","xmas":"HoHoHo"}}`
 
-You can see all settings by sending `setting/Doorbell` with no payload. There are a number of settings that are part of the library. There are also a number of GPIO settings not covered here (see the code for these). The main settings are as follows, settings startign `image` and `tas` can be grouped as an object to save space.
+You can see all settings by sending `setting/Doorbell` with no payload. There are a number of settings that are part of the library. There are also a number of GPIO settings not covered here (see the code for these). The main settings are as follows, settings starting `image` and `tas` can be grouped as an object to save space.
 
 |Setting|Meaning|
 |-------|-------|

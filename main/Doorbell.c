@@ -62,9 +62,9 @@ static const char TAG[] = "Generic";
 	s(imagexmas,)	\
 	s(imageyear,)	\
 	s(imagehall,)	\
-	s(imagewait,Wait)	\
-	s(imagebusy,Busy)	\
-	s(imageaway,Away)	\
+	s(imagewait,G:Wait)	\
+	s(imagebusy,Y:Busy)	\
+	s(imageaway,R:Away)	\
 	s(postcode,)	\
 	s(toot,)		\
 	s(tasbell,)	\
@@ -88,8 +88,8 @@ settings
 uint32_t pushed = 0;
 uint32_t override = 0;
 uint32_t last = -1;
-uint32_t colour = 0x0000FF;
-char activename[20] = "";
+char activename[30] = "";
+char overridename[30] = "";
 uint8_t *idle = NULL;
 uint8_t *active = NULL;
 SemaphoreHandle_t mutex = NULL;
@@ -103,6 +103,8 @@ getimage (char *name, uint8_t * prev)
 {
    if (!*imageurl || !name || !*name || revk_link_down ())
       return prev;
+   if (*name && name[1] == ':')
+      name += 2;                // Colour prefix
    char *url;
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
@@ -162,20 +164,26 @@ getimage (char *name, uint8_t * prev)
 }
 
 void
-setleds (uint32_t c)
-{
-   //ESP_LOGE (TAG, "Colour %06lX%s", c, strip ? "" : " (not initialised)");
-   if (!strip)
-      return;
-   for (int i = 0; i < leds; i++)
-      led_strip_set_pixel (strip, i, c >> 16, c >> 8 & 255, c & 255);
-   led_strip_refresh (strip);
+image_load (const char *name, const uint8_t * image, char colour)
+{                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
+   if (name && *name && name[1] == ':')
+      colour = *name;
+   if (strip)
+   {
+      uint8_t r = strchr ("RMYW", colour) ? 0xFF : 0;
+      uint8_t g = strchr ("GCYW", colour) ? 0xFF : 0;
+      uint8_t b = strchr ("BCMW", colour) ? 0xFF : 0;
+      for (int i = 0; i < leds; i++)
+         led_strip_set_pixel (strip, i, r, g, b);
+      led_strip_refresh (strip);
+   }
+   if (image)
+      gfx_load (image);
 }
 
 void
-setactive (char *value, uint32_t setcolour)
+setactive (char *value)
 {
-   colour = setcolour;
    if (!value || !strcmp (activename, value))
       return;
    xSemaphoreTake (mutex, portMAX_DELAY);
@@ -227,7 +235,12 @@ web_root (httpd_req_t * req)
 static esp_err_t
 web_push (httpd_req_t * req)
 {
-   pushed = uptime ();
+   size_t l = httpd_req_get_url_query_len (req);
+   char query[200];
+   if (!*overridename && l > 0 && l < sizeof (query) && !httpd_req_get_url_query_str (req, query, sizeof (query)))
+      strncpy (overridename, query, sizeof (overridename));
+   else
+      pushed = uptime ();
    return web_root (req);
 }
 
@@ -241,7 +254,7 @@ web_active (httpd_req_t * req)
       char *q = query;
       if (*q == '?')
          q++;
-      setactive (q, 0x0000FF);
+      setactive (q);
    }
    return web_root (req);
 }
@@ -352,8 +365,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
             tasawaystate = !jo_strcmp (j, "OFF");       // Off means we are away
          else if (!strcmp (target, tasbusy))
             tasbusystate = !jo_strcmp (j, "OFF");       // Off means we are busy
-         setactive (tasawaystate ? imageaway : tasbusystate ? imagebusy : imagewait,
-                    tasawaystate ? 0xFF0000 : tasbusystate ? 0xFFFF00 : 0x00FF00);
+         setactive (tasawaystate ? imageaway : tasbusystate ? imagebusy : imagewait);
       }
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
@@ -379,12 +391,15 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (!strcmp (suffix, "push"))
    {
-      pushed = uptime ();
+      if (!*overridename && *value)
+         strncpy (overridename, value, sizeof (overridename));
+      else
+         pushed = uptime ();
       return "";
    }
    if (!strcmp (suffix, "active"))
    {
-      setactive (value, 0x0000FF);
+      setactive (value);
       return "";
    }
    return NULL;
@@ -434,7 +449,7 @@ app_main ()
 #undef b
 #undef s
       revk_start ();
-   setactive (imagewait, 0x0000FF);
+   setactive (imagewait);
 
    if (leds)
    {
@@ -451,7 +466,7 @@ app_main ()
          .flags.with_dma = true,
       };
       REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &strip));
-      setleds (0xFF00FF);
+      image_load (NULL, NULL, 'M');
    }
 
    // Web interface
@@ -513,6 +528,22 @@ app_main ()
          tassub (tasaway);
          tassub (tasbusy);
       }
+      if (*overridename)
+      {                         // Special override
+         uint8_t *image = getimage (overridename, NULL);
+         if (image)
+         {
+            xSemaphoreTake (mutex, portMAX_DELAY);
+            override = uptime ();
+            gfx_lock ();
+            gfx_clear (0);
+            image_load (overridename, image, 'B');
+            gfx_unlock ();
+            xSemaphoreGive (mutex);
+            free (image);
+         }
+         *overridename = 0;
+      }
       if (override + holdtime < up)
          override = 0;
       if (override)
@@ -533,7 +564,6 @@ app_main ()
       {                         // Bell was pushed
          if (last)
          {                      // Show status as was showing idle
-            setleds (colour);
             xSemaphoreTake (mutex, portMAX_DELAY);
             if (!active)
                active = getimage (activename, active);
@@ -551,22 +581,21 @@ app_main ()
             if (!active)
                gfx_message ("PLEASE/WAIT");
             else
-               gfx_load (active);
+               image_load (activename, active, 'B');
             addqr ();
             gfx_unlock ();
             xSemaphoreGive (mutex);
             if (*toot)
             {
                char *pl = NULL;
-               asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900, t.tm_mon + 1,
-                         t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
+               asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900,
+                         t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
                revk_mqtt_send_raw ("toot", 0, pl, 1);
                free (pl);
             }
          }
       } else if (last != now / 60)
       {                         // Show idle
-         setleds (0);
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
             idle = getimage (basename, idle);
@@ -578,7 +607,7 @@ app_main ()
          if (!idle)
             gfx_message ("RING/THE/BELL");
          else
-            gfx_load (idle);
+            image_load (basename, idle, 'K');
          addqr ();
          gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B);  // Yes slightly in from edge
          gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
