@@ -164,15 +164,15 @@ getimage (char *name, uint8_t * prev)
 }
 
 void
-image_load (const char *name, const uint8_t * image, char colour)
+image_load (const char *name, const uint8_t * image, char c)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
    if (name && *name && name[1] == ':')
-      colour = *name;
+      c = *name;
    if (strip)
-   {
-      uint8_t r = strchr ("RMYW", colour) ? 0xFF : 0;
-      uint8_t g = strchr ("GCYW", colour) ? 0xFF : 0;
-      uint8_t b = strchr ("BCMW", colour) ? 0xFF : 0;
+   { // This is limited power mix
+      uint8_t r = (c == 'R' ? 0xFF : c == 'M' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
+      uint8_t g = (c == 'G' ? 0xFF : c == 'C' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
+      uint8_t b = (c == 'B' ? 0xFF : c == 'C' || c == 'M' ? 0x80 : c == 'W' ? 0x55 : 0);
       for (int i = 0; i < leds; i++)
          led_strip_set_pixel (strip, i, r, g, b);
       led_strip_refresh (strip);
