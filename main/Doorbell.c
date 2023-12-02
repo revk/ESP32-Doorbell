@@ -98,8 +98,21 @@ char tasawaystate = 0;
 char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 
+const char *
+getidle (struct tm *t)
+{
+   const char *basename = imageidle;    // The idle name, seasonally adjusted
+   if (*imagexmas && t->tm_mon == 11 && t->tm_mday <= 25)
+      basename = imagexmas;
+   if (*imageyear && t->tm_mon == 0 && t->tm_mday <= 7)
+      basename = imageyear;
+   if (*imagehall && t->tm_mon == 9 && t->tm_mday == 31 && t->tm_hour >= 16)
+      basename = imagehall;
+   return basename;
+}
+
 uint8_t *
-getimage (char *name, uint8_t * prev)
+getimage (const char *name, uint8_t * prev)
 {
    if (!*imageurl || !name || !*name || revk_link_down ())
       return prev;
@@ -222,12 +235,17 @@ web_icon (httpd_req_t * req)
 static esp_err_t
 web_root (httpd_req_t * req)
 {
+   time_t now = time (0);
+   struct tm t;
+   localtime_r (&now, &t);
    if (revk_link_down ())
       return revk_web_settings (req);   // Direct to web set up
    web_head (req, *hostname ? hostname : appname);
-   httpd_resp_sendstr_chunk (req, "<p>Active page ");
+   httpd_resp_sendstr_chunk (req, "<table><tr><td>Idle page</td><td>");
+   httpd_resp_sendstr_chunk (req, getidle (&t));
+   httpd_resp_sendstr_chunk (req, "</td></tr><tr><td>Active page</td><td>");
    httpd_resp_sendstr_chunk (req, activename);
-   httpd_resp_sendstr_chunk (req, "</p>");
+   httpd_resp_sendstr_chunk (req, "</td></tr></table>");
    httpd_resp_sendstr_chunk (req, "<p><a href=/push>Ding!</a></p>");
    return revk_web_foot (req, 0, 1);
 }
@@ -505,13 +523,7 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
-      char *basename = imageidle;       // The idle name, seasonally adjusted
-      if (*imagexmas && t.tm_mon == 11 && t.tm_mday <= 25)
-         basename = imagexmas;
-      if (*imageyear && t.tm_mon == 0 && t.tm_mday <= 7)
-         basename = imageyear;
-      if (*imagehall && t.tm_mon == 9 && t.tm_mday == 31 && t.tm_hour >= 16)
-         basename = imagehall;
+      const char *basename = getidle (&t);
       if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
          day = t.tm_mday;
