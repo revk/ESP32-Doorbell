@@ -235,17 +235,31 @@ web_icon (httpd_req_t * req)
 static esp_err_t
 web_root (httpd_req_t * req)
 {
-   time_t now = time (0);
-   struct tm t;
-   localtime_r (&now, &t);
    if (revk_link_down ())
       return revk_web_settings (req);   // Direct to web set up
    web_head (req, *hostname ? hostname : appname);
-   httpd_resp_sendstr_chunk (req, "<table><tr><td>Idle page</td><td>");
-   httpd_resp_sendstr_chunk (req, getidle (&t));
-   httpd_resp_sendstr_chunk (req, "</td></tr><tr><td>Active page</td><td>");
-   httpd_resp_sendstr_chunk (req, activename);
-   httpd_resp_sendstr_chunk (req, "</td></tr></table>");
+   if (*imageurl)
+   {
+      void i (const char *tag, const char *name)
+      {
+         httpd_resp_sendstr_chunk (req,
+                                   "<figure style='float:right;background:white;border:10px solid white;border-left:20px solid white;margin:0;");
+         if (gfxinvert)
+            httpd_resp_sendstr_chunk (req, ";filter:invert(1)");
+         httpd_resp_sendstr_chunk (req, "'><img wdth=240 height=400 src='");
+         httpd_resp_sendstr_chunk (req, imageurl);
+         httpd_resp_sendstr_chunk (req, "/");
+         httpd_resp_sendstr_chunk (req, name);
+         httpd_resp_sendstr_chunk (req, ".png'><figcaption>");
+         httpd_resp_sendstr_chunk (req, tag);
+         httpd_resp_sendstr_chunk (req, "</figcaption></figure>");
+      }
+      time_t now = time (0);
+      struct tm t;
+      localtime_r (&now, &t);
+      i ("Active", activename);
+      i ("Idle", getidle (&t));
+   }
    httpd_resp_sendstr_chunk (req, "<p><a href=/push>Ding!</a></p>");
    return revk_web_foot (req, 0, 1);
 }
