@@ -243,7 +243,7 @@ web_root (httpd_req_t * req)
       void i (const char *tag, const char *name)
       {
          httpd_resp_sendstr_chunk (req,
-                                   "<figure style='float:right;background:white;border:10px solid white;border-left:20px solid white;margin:0;");
+                                   "<figure style='float:right;background:white;border:10px solid white;border-left:20px solid white;margin:5px;");
          if (gfxinvert)
             httpd_resp_sendstr_chunk (req, ";filter:invert(1)");
          httpd_resp_sendstr_chunk (req, "'><img wdth=240 height=400 src='");
