@@ -49,6 +49,8 @@ The files are loaded from the `imageurl` with `/` and the image name and `.mono`
 
 `convert `*sourcepng*` -dither None -monochrome -rotate -90 -depth 1 GRAY:`*targetmono*
 
+Note, the web interface links to the same URL with `.png` to show the current image files.
+
 ## MQTT settings
 
 Settings can be changed via MQTT as per the [RevK library](https://github.com/revk/ESP32-RevK). You can change a setting by using the topic `setting/Doorbell`. Not that `Doorbell` is all units, and can instead be the *hostname* or *MAC address* of a specific unit. You can set an individual setting, e.g. `setting/Doorbell/imageidle Example`, or use JSON to set multiple settings, e.g. `setting/Doorbell {"image":{"idle":"Example","xmas":"HoHoHo"}}`
