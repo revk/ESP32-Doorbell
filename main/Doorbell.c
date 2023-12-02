@@ -111,10 +111,12 @@ getidle (struct tm *t)
    return basename;
 }
 
-const char *skipcolour(const char *n)
+const char *
+skipcolour (const char *n)
 {
-	if (n&&*n&&n[1]==':')n+=2;
-	return n;
+   if (n && *n && n[1] == ':')
+      n += 2;
+   return n;
 }
 
 uint8_t *
@@ -122,7 +124,7 @@ getimage (const char *name, uint8_t * prev)
 {
    if (!*imageurl || !name || !*name || revk_link_down ())
       return prev;
-   name=skipcolour(name);
+   name = skipcolour (name);
    char *url;
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
@@ -247,7 +249,7 @@ web_root (httpd_req_t * req)
    {
       void i (const char *tag, const char *name)
       {
-	      name=skipcolour(name);
+         name = skipcolour (name);
          httpd_resp_sendstr_chunk (req,
                                    "<figure style='float:right;background:white;border:10px solid white;border-left:20px solid white;margin:5px;");
          if (gfxinvert)
