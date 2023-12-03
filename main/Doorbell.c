@@ -618,6 +618,7 @@ app_main ()
          }
       } else if (last != now / 60)
       {                         // Show idle
+         last = now / 60;
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
             idle = getimage (basename, idle);
@@ -636,7 +637,6 @@ app_main ()
          gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B);  // Yes slightly in from edge
          gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
-         last = now / 60;
          if (!active)
             active = getimage (activename, active);     // Just in case
          xSemaphoreGive (mutex);
