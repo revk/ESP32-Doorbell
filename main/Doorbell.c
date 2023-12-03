@@ -1,12 +1,12 @@
-/* Generic app */
-/* Copyright ©2019 - 2022 Adrian Kennard, Andrews & Arnold Ltd.See LICENCE file for details .GPL 3.0 */
-/* This has a wide range of example stuff in it that does not in itself warrant a separate project */
-/* Including UART logging and debug for Daikin air-con */
-/* Including display text and QR code */
-/* Including SolarEdge monitor */
-/* Including DEFCON mode - DEFCON/x on mqtt, or ?x on http, where x=1-5 for normal, 0 for special all on, 6-8 for all off, 9 for all off and quiet and no blink */
+/* Doorbell app */
+/* Copyright ©2019 - 2023 Adrian Kennard, Andrews & Arnold Ltd.See LICENCE file for details .GPL 3.0 */
 
-static const char TAG[] = "Generic";
+// TODO
+// More general image cache with If-Modified-Since logic
+// Maybe flash filing system for images even
+// More options for LEDs, especially when we have 24 of them
+
+static const char TAG[] = "Doorbell";
 
 #include "revk.h"
 #include "esp_system.h"
@@ -20,19 +20,6 @@ static const char TAG[] = "Generic";
 #include "iec18004.h"
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
-
-#ifdef	CONFIG_LWIP_DHCP_DOES_ARP_CHECK
-#warning CONFIG_LWIP_DHCP_DOES_ARP_CHECK means DHCP is slow
-#endif
-#ifndef	CONFIG_LWIP_DHCP_RESTORE_LAST_IP
-#warning CONFIG_LWIP_DHCP_RESTORE_LAST_IP may improve speed
-#endif
-#ifndef	CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP
-#warning CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP may speed boot
-#endif
-#if	CONFIG_BOOTLOADER_LOG_LEVEL > 0
-#warning CONFIG_BOOTLOADER_LOG_LEVEL recommended to be no output
-#endif
 
 #define	MAXGPIO	36
 #define BITFIELDS "-^"
