@@ -56,6 +56,7 @@ static const char TAG[] = "Generic";
 	u8(leds,4)	\
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
+	u32(refresh,3600)	\
 	b(gfxinvert)	\
 	s(imageurl,)	\
 	s(imageidle,Example)	\
@@ -537,6 +538,7 @@ app_main ()
    gfx_lock ();
    gfx_clear (255);             // Black
    gfx_unlock ();
+   uint32_t lastrefresh = 0;
    uint8_t day = 0;
    while (1)
    {
@@ -545,6 +547,16 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
+      void addqr (void)
+      {
+         if (*postcode)
+         {
+            char temp[200];
+            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
+            gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
+            gfx_qr (temp, 4);
+         }
+      }
       const char *basename = getidle (&t);
       if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
@@ -570,8 +582,8 @@ app_main ()
             xSemaphoreTake (mutex, portMAX_DELAY);
             override = uptime ();
             gfx_lock ();
-            gfx_clear (0);
             image_load (overridename, image, 'B');
+            addqr ();
             gfx_unlock ();
             xSemaphoreGive (mutex);
             free (image);
@@ -584,16 +596,6 @@ app_main ()
          continue;
       if (pushed + holdtime < up)
          pushed = 0;            // Time out
-      void addqr (void)
-      {
-         if (*postcode)
-         {
-            char temp[200];
-            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
-            gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
-            gfx_qr (temp, 4);
-         }
-      }
       if (pushed)
       {                         // Bell was pushed
          if (last)
@@ -633,11 +635,14 @@ app_main ()
          if (!idle)
             idle = getimage (basename, idle);
          gfx_lock ();
-         if (!last || !t.tm_min)
+         if (refresh && lastrefresh != up / refresh)
+         {
+            lastrefresh = up / refresh;
             gfx_refresh ();
+         }
          // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
-            gfx_message ("RING/THE/BELL");
+            gfx_message ("CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
             image_load (basename, idle, 'K');
          addqr ();
