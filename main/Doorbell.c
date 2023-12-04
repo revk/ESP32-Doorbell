@@ -637,7 +637,7 @@ app_main ()
             image_load (basename, idle, 'K');
          addqr ();
          gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B);  // Yes slightly in from edge
-         gfx_text (1, "%02d:%02d", t.tm_hour, t.tm_min);
+         gfx_7seg (2, "%02d:%02d", t.tm_hour, t.tm_min);
          gfx_unlock ();
          if (!active)
             active = getimage (activename, active);     // Just in case
