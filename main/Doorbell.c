@@ -568,6 +568,7 @@ app_main ()
          {
             xSemaphoreTake (mutex, portMAX_DELAY);
             override = uptime ();
+            last = 0;
             gfx_lock ();
             image_load (overridename, image, 'B');
             addqr ();
@@ -618,16 +619,16 @@ app_main ()
          }
       } else if (last != now / 60)
       {                         // Show idle
-         last = now / 60;
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
             idle = getimage (basename, idle);
          gfx_lock ();
-         if (refresh && lastrefresh != up / refresh)
+         if (!last || (refresh && lastrefresh != up / refresh))
          {
             lastrefresh = up / refresh;
             gfx_refresh ();
          }
+         last = now / 60;
          // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
             gfx_message ("CANWCH/Y GLOCH/ / /RING/THE/BELL");
