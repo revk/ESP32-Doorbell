@@ -27,6 +27,8 @@ static const char TAG[] = "Doorbell";
 #define PORT_PU 0x2000
 #define port_mask(p) ((p)&0xFF) // 16 bit
 
+const uint8_t blink[3] = { 0 }; // dummy
+
 // Dynamic
 
 #define	settings		\
@@ -86,6 +88,26 @@ char mqttinit = 0;
 char tasawaystate = 0;
 char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
+char led_colour = 0;
+
+const uint8_t gamma8[256] = {
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
+   1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2,
+   2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
+   5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10,
+   10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
+   17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25,
+   25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
+   37, 38, 39, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
+   51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67, 68,
+   69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89,
+   90, 92, 93, 95, 96, 98, 99, 101, 102, 104, 105, 107, 109, 110, 112, 114,
+   115, 117, 119, 120, 122, 124, 126, 127, 129, 131, 133, 135, 137, 138, 140, 142,
+   144, 146, 148, 150, 152, 154, 156, 158, 160, 162, 164, 167, 169, 171, 173, 175,
+   177, 180, 182, 184, 186, 189, 191, 193, 196, 198, 200, 203, 205, 208, 210, 213,
+   215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
+};
 
 const char *
 getidle (struct tm *t)
@@ -177,15 +199,7 @@ image_load (const char *name, const uint8_t * image, char c)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
    if (name && *name && name[1] == ':')
       c = *name;
-   if (strip)
-   {                            // This is limited power mix
-      uint8_t r = (c == 'R' ? 0xFF : c == 'M' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
-      uint8_t g = (c == 'G' ? 0xFF : c == 'C' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
-      uint8_t b = (c == 'B' ? 0xFF : c == 'C' || c == 'M' ? 0x80 : c == 'W' ? 0x55 : 0);
-      for (int i = 0; i < leds; i++)
-         led_strip_set_pixel (strip, i, r, g, b);
-      led_strip_refresh (strip);
-   }
+   led_colour = c;
    if (image)
       gfx_load (image);
 }
@@ -456,6 +470,40 @@ push_task (void *arg)
 }
 
 void
+led_task (void *arg)
+{
+   uint8_t or = 0,
+      og = 0,
+      ob = 0;
+   while (1)
+   {
+      char c = led_colour;
+      uint8_t r = (c == 'R' ? 0xFF : c == 'M' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
+      uint8_t g = (c == 'G' ? 0xFF : c == 'C' || c == 'Y' ? 0x80 : c == 'W' ? 0x55 : 0);
+      uint8_t b = (c == 'B' ? 0xFF : c == 'C' || c == 'M' ? 0x80 : c == 'W' ? 0x55 : 0);
+      if (r == or && g == og && b == ob)
+      {                         // No change
+         usleep (10000);
+         continue;
+      }
+      // Fade
+      for (int t = 0; t <= 0xFF; t += 0x0F)
+      {
+         uint8_t R = gamma8[(t * r + (0xFF - t) * or) / 0xFF];
+         uint8_t G = gamma8[(t * g + (0xFF - t) * og) / 0xFF];
+         uint8_t B = gamma8[(t * b + (0xFF - t) * ob) / 0xFF];
+         for (int i = 0; i < leds; i++)
+            led_strip_set_pixel (strip, i, R, G, B);
+         led_strip_refresh (strip);
+         usleep (50000);
+      }
+      or = r;
+      og = g;
+      ob = b;
+   }
+}
+
+void
 app_main ()
 {
    mutex = xSemaphoreCreateBinary ();
@@ -495,6 +543,8 @@ app_main ()
          .flags.with_dma = true,
       };
       REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &strip));
+      if (strip)
+         revk_task ("led", led_task, NULL, 4);
       image_load (NULL, NULL, 'M');
    }
 
