@@ -88,7 +88,7 @@ char mqttinit = 0;
 char tasawaystate = 0;
 char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
-char led_colour = 0;
+volatile char led_colour = 0;
 
 const uint8_t gamma8[256] = {
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
