@@ -21,10 +21,10 @@ issue:
 	git commit -a -m release
 	git push
 
-set:    epd75
+set:    epd75k
 
-epd75:
-	components/ESP32-RevK/setbuildsuffix -S3-MINI-N4-R2-EPD75
+epd75k:
+	components/ESP32-RevK/setbuildsuffix -S3-MINI-N4-R2-EPD75K
 	@make
 
 flash:
