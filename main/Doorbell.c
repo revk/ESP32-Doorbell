@@ -33,16 +33,16 @@ const uint8_t blink[3] = { 0 }; // dummy
 
 #define	settings		\
 	io(gfxena,)	\
-        io(btn2,-8)     \
-        io(btn1,-2)     \
-        io(gfxmosi,37)  \
-        io(gfxsck,38)   \
-        io(gfxcs,39)    \
-        io(gfxdc,40)    \
-        io(gfxrst,41)   \
-        io(gfxbusy,42)  \
-        io(rgb,36)      \
-        io(relay,36)    \
+        io(btn2,-42)     \
+        io(btn1,-41)     \
+        io(gfxmosi,40)  \
+        io(gfxsck,39)   \
+        io(gfxcs,38)    \
+        io(gfxdc,37)    \
+        io(gfxrst,36)   \
+        io(gfxbusy,35)  \
+        io(rgb,34)      \
+        io(relay,)    \
 	u8(leds,24)	\
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
