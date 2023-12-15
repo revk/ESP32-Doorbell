@@ -506,6 +506,13 @@ led_task (void *arg)
 void
 app_main ()
 {
+   {                            // All unused input pins pull down
+      gpio_config_t c = {.pull_down_en = 1,.mode = GPIO_MODE_DISABLE };
+      for (uint8_t p = 0; p <= 48; p++)
+         if (gpio_ok (p) & 2)
+            c.pin_bit_mask |= (1LL << p);
+      gpio_config (&c);
+   }
    mutex = xSemaphoreCreateBinary ();
    xSemaphoreGive (mutex);
    revk_boot (&app_callback);
