@@ -530,7 +530,6 @@ app_main ()
 
    if (leds)
    {
-	   sleep(5);
       led_strip_config_t strip_config = {
          .strip_gpio_num = (port_mask (rgb)),
          .max_leds = leds,
