@@ -530,6 +530,7 @@ app_main ()
 
    if (leds)
    {
+	   sleep(5);
       led_strip_config_t strip_config = {
          .strip_gpio_num = (port_mask (rgb)),
          .max_leds = leds,
@@ -560,7 +561,6 @@ app_main ()
       register_get_uri ("/active", web_active);
       revk_web_settings_add (webserver);
    }
-   sleep(5);
    {
     const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct: 1, invert:gfxinvert);
       if (e)
