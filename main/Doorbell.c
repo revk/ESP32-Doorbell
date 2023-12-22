@@ -46,6 +46,8 @@ const uint8_t blink[3] = { 0 }; // dummy
 	u8(leds,24)	\
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
+	u8(ledw1,0)	\
+	u8(ledw2,0)	\
 	u32(refresh,3600)	\
 	b(gfxinvert)	\
 	s(imageurl,)	\
@@ -217,7 +219,7 @@ setactive (char *value)
    if (!last)
       last = -1;                // Redisplay
    if (pushed)
-      pushed = uptime ();
+      pushed = uptime () + holdtime;
    xSemaphoreGive (mutex);
 }
 
@@ -284,7 +286,7 @@ web_push (httpd_req_t * req)
    if (!*overridename && l > 0 && l < sizeof (query) && !httpd_req_get_url_query_str (req, query, sizeof (query)))
       strncpy (overridename, query, sizeof (overridename));
    else
-      pushed = uptime ();
+      pushed = uptime () + holdtime;
    return web_root (req);
 }
 
@@ -450,7 +452,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       if (!*overridename && *value)
          strncpy (overridename, value, sizeof (overridename));
       else
-         pushed = uptime ();
+         pushed = uptime () + holdtime;
       return "";
    }
    if (!strcmp (suffix, "active"))
@@ -477,7 +479,7 @@ push_task (void *arg)
    {
       uint8_t l = gpio_get_level (port_mask (btn1));
       if (!l)
-         pushed = uptime ();
+         pushed = uptime () + holdtime;
       usleep (10000);
    }
 }
@@ -502,11 +504,28 @@ led_task (void *arg)
       // Fade
       for (int t = 0; t <= 0xFF; t += 0x0F)
       {
-         uint8_t R = gamma8[(t * r + (0xFF - t) * or) / 0xFF];
-         uint8_t G = gamma8[(t * g + (0xFF - t) * og) / 0xFF];
-         uint8_t B = gamma8[(t * b + (0xFF - t) * ob) / 0xFF];
+         uint8_t RI,
+           R = gamma8[(t * r + (0xFF - t) * or) / 0xFF];
+         uint8_t GI,
+           G = gamma8[(t * g + (0xFF - t) * og) / 0xFF];
+         uint8_t BI,
+           B = gamma8[(t * b + (0xFF - t) * ob) / 0xFF];
+         if (ledw2 > ledw1 && !r && !g && !b)
+         {                      // Idle LEDs
+            RI = gamma8[(t * 0x55 + (0xFF - t) * or) / 0xFF];
+            GI = gamma8[(t * 0x55 + (0xFF - t) * og) / 0xFF];
+            BI = gamma8[(t * 0x55 + (0xFF - t) * ob) / 0xFF];
+         } else
+         {                      // Other LEDs
+            RI = R;
+            GI = G;
+            BI = B;
+         }
          for (int i = 0; i < leds; i++)
-            led_strip_set_pixel (strip, i, R, G, B);
+            if (i >= ledw1 && i < ledw2)
+               led_strip_set_pixel (strip, i, RI, GI, BI);
+            else
+               led_strip_set_pixel (strip, i, R, G, B);
          led_strip_refresh (strip);
          usleep (50000);
       }
@@ -638,7 +657,7 @@ app_main ()
       {
          ESP_LOGE (TAG, "Override: %s", overridemsg);
          xSemaphoreTake (mutex, portMAX_DELAY);
-         override = uptime ();
+         override = uptime () + 10;
          last = 0;
          gfx_lock ();
          gfx_message ((char *) overridemsg);
@@ -654,7 +673,7 @@ app_main ()
          if (image)
          {
             xSemaphoreTake (mutex, portMAX_DELAY);
-            override = uptime ();
+            override = uptime () + holdtime;
             last = 0;
             gfx_lock ();
             image_load (overridename, image, 'B');
@@ -665,11 +684,11 @@ app_main ()
          }
          *overridename = 0;
       }
-      if (override + holdtime < up)
+      if (override < up)
          override = 0;
       if (override)
          continue;
-      if (pushed + holdtime < up)
+      if (pushed < up)
          pushed = 0;            // Time out
       if (pushed)
       {                         // Bell was pushed
