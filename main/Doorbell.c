@@ -89,6 +89,7 @@ char tasawaystate = 0;
 char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
+volatile char overridemsg[1000] = "";
 
 const uint8_t gamma8[256] = {
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -312,10 +313,7 @@ web_message (httpd_req_t * req)
       char *q = query;
       if (*q == '?')
          q++;
-      xSemaphoreTake (mutex, portMAX_DELAY);
-      override = uptime ();
-      gfx_message (q);
-      xSemaphoreGive (mutex);
+      strcpy ((char *) overridemsg, q);
    }
    return web_root (req);
 }
@@ -418,12 +416,27 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       mqttinit = 1;
       return "";
    }
+   if (!strcmp (suffix, "wifi"))
+   {
+      char *p = value;
+      p += sprintf (p, "%s/ /", TAG);
+      if (jo_find (j, "ssid") == JO_STRING)
+      {
+         p += sprintf (p, "WiFi/");
+         p += jo_strncpy (j, p, value + sizeof (value) - p);
+      }
+      p += sprintf (p, "/ /");
+      if (jo_find (j, "ip") == JO_STRING)
+      {
+         p += sprintf (p, "IP/");
+         p += jo_strncpy (j, p, value + sizeof (value) - p);
+      }
+      strcpy ((char *) overridemsg, value);
+      return "";
+   }
    if (!strcmp (suffix, "message"))
    {
-      xSemaphoreTake (mutex, portMAX_DELAY);
-      override = uptime ();
-      gfx_message (value);
-      xSemaphoreGive (mutex);
+      strcpy ((char *) overridemsg, value);
       return "";
    }
    if (!strcmp (suffix, "cancel"))
@@ -621,8 +634,22 @@ app_main ()
          tassub (tasaway);
          tassub (tasbusy);
       }
+      if (*overridemsg)
+      {
+         ESP_LOGE (TAG, "Override: %s", overridemsg);
+         xSemaphoreTake (mutex, portMAX_DELAY);
+         override = uptime ();
+         last = 0;
+         gfx_lock ();
+         gfx_message ((char *) overridemsg);
+         *overridemsg = 0;
+         addqr ();
+         gfx_unlock ();
+         xSemaphoreGive (mutex);
+      }
       if (*overridename)
       {                         // Special override
+         ESP_LOGE (TAG, "Override: %s", overridename);
          uint8_t *image = getimage (overridename, NULL);
          if (image)
          {
