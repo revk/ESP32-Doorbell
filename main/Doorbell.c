@@ -648,7 +648,7 @@ app_main ()
          };
          esp_wifi_sta_get_ap_info (&ap);
          char *p = (char *) overridemsg;
-         p += sprintf (p, "/ / /WiFi/%s/ /Channel %d/RSSI %d/ /", (char *) ap.ssid, ap.primary, ap.rssi);
+         p += sprintf (p, "/ /%s/ / /WiFi/%s/ /Channel %d/RSSI %d/ /",TAG, (char *) ap.ssid, ap.primary, ap.rssi);
          if (sta_netif)
          {
             {
