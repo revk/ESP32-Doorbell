@@ -754,7 +754,7 @@ app_main ()
          last = now / 60;
          // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
-            gfx_message ("/ / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
+            gfx_message ("/ / / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
             image_load (basename, idle, 'K');
          addqr ();
