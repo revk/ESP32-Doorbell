@@ -419,6 +419,11 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       mqttinit = 1;
       return "";
    }
+   if(!strcmp(suffix,"upgrade"))
+   {
+      strncpy ((char *) overridemsg, "UPGRADING", sizeof (overridemsg));
+      return "";
+   }
    if (!strcmp (suffix, "wifi") || !strcmp (suffix, "ipv6"))
    {
       wificonnect = 1;
@@ -648,7 +653,7 @@ app_main ()
          };
          esp_wifi_sta_get_ap_info (&ap);
          char *p = (char *) overridemsg;
-         p += sprintf (p, "/ /%s/ / /WiFi/%s/ /Channel %d/RSSI %d/ /",TAG, (char *) ap.ssid, ap.primary, ap.rssi);
+         p += sprintf (p, "/ /%s/%s/ / /WiFi/%s/ /Channel %d/RSSI %d/ /",appname,hostname, (char *) ap.ssid, ap.primary, ap.rssi);
          if (sta_netif)
          {
             {
@@ -728,7 +733,7 @@ app_main ()
             gfx_lock ();
             // These do a gfx_clear or replace whole buffer anyway
             if (!active)
-               gfx_message ("/ / / / / /PLEASE/WAIT");
+               gfx_message ("/ / / / / / /PLEASE/WAIT");
             else
                image_load (activename, active, 'B');
             addqr ();
@@ -749,7 +754,7 @@ app_main ()
          last = now / 60;
          // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
-            gfx_message ("/ / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
+            gfx_message ("/ / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
             image_load (basename, idle, 'K');
          addqr ();
