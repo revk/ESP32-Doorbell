@@ -92,6 +92,7 @@ char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
 volatile char overridemsg[1000] = "";
+volatile uint8_t wificonnect=0;
 
 const uint8_t gamma8[256] = {
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -418,22 +419,9 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       mqttinit = 1;
       return "";
    }
-   if (!strcmp (suffix, "wifi"))
+   if (!strcmp (suffix, "wifi")||!strcmp(suffix,"ipv6"))
    {
-      char *p = value;
-      p += sprintf (p, "%s/ /", TAG);
-      if (jo_find (j, "ssid") == JO_STRING)
-      {
-         p += sprintf (p, "WiFi/");
-         p += jo_strncpy (j, p, value + sizeof (value) - p);
-      }
-      p += sprintf (p, "/ /");
-      if (jo_find (j, "ip") == JO_STRING)
-      {
-         p += sprintf (p, "IP/");
-         p += jo_strncpy (j, p, value + sizeof (value) - p);
-      }
-      strncpy ((char *) overridemsg, value, sizeof (overridemsg));
+	   wificonnect=1;
       return "";
    }
    if (!strcmp (suffix, "message"))
@@ -652,6 +640,9 @@ app_main ()
          last = -1;
          tassub (tasaway);
          tassub (tasbusy);
+      }
+      if(wificonnect)
+      {
       }
       if (*overridemsg)
       {
