@@ -315,7 +315,7 @@ web_message (httpd_req_t * req)
       char *q = query;
       if (*q == '?')
          q++;
-      strcpy ((char *) overridemsg, q);
+      strncpy ((char *) overridemsg, q, sizeof (overridemsg));
    }
    return web_root (req);
 }
@@ -433,12 +433,12 @@ app_callback (int client, const char *prefix, const char *target, const char *su
          p += sprintf (p, "IP/");
          p += jo_strncpy (j, p, value + sizeof (value) - p);
       }
-      strcpy ((char *) overridemsg, value);
+      strncpy ((char *) overridemsg, value, sizeof (overridemsg));
       return "";
    }
    if (!strcmp (suffix, "message"))
    {
-      strcpy ((char *) overridemsg, value);
+      strncpy ((char *) overridemsg, value, sizeof (overridemsg));
       return "";
    }
    if (!strcmp (suffix, "cancel"))
