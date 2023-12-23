@@ -92,7 +92,7 @@ char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
 volatile char overridemsg[1000] = "";
-volatile uint8_t wificonnect=0;
+volatile uint8_t wificonnect = 0;
 
 const uint8_t gamma8[256] = {
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -419,9 +419,9 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       mqttinit = 1;
       return "";
    }
-   if (!strcmp (suffix, "wifi")||!strcmp(suffix,"ipv6"))
+   if (!strcmp (suffix, "wifi") || !strcmp (suffix, "ipv6"))
    {
-	   wificonnect=1;
+      wificonnect = 1;
       return "";
    }
    if (!strcmp (suffix, "message"))
@@ -641,14 +641,35 @@ app_main ()
          tassub (tasaway);
          tassub (tasbusy);
       }
-      if(wificonnect)
+      if (wificonnect)
       {
+         wificonnect = 0;
+         wifi_ap_record_t ap = {
+         };
+         esp_wifi_sta_get_ap_info (&ap);
+         char *p = (char *) overridemsg;
+         p += sprintf (p, "/ / /WiFi/%s/ /Channel %d/RSSI %d/ /", (char *) ap.ssid, ap.primary, ap.rssi);
+         if (sta_netif)
+         {
+            {
+               esp_netif_ip_info_t ip;
+               if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+                  p += sprintf (p, "IPv4/" IPSTR "/ /", IP2STR (&ip.ip));
+            }
+#ifdef CONFIG_LWIP_IPV6
+            {
+               esp_ip6_addr_t ip;
+               if (!esp_netif_get_ip6_global (sta_netif, &ip))
+                  p += sprintf (p, "IPv6/[2]" IPV6STR "/ /", IPV62STR (ip));
+            }
+#endif
+         }
       }
       if (*overridemsg)
       {
          ESP_LOGE (TAG, "Override: %s", overridemsg);
          xSemaphoreTake (mutex, portMAX_DELAY);
-         override = uptime () + 10;
+         override = uptime () + holdtime;
          last = 0;
          gfx_lock ();
          gfx_message ((char *) overridemsg);
@@ -707,7 +728,7 @@ app_main ()
             gfx_lock ();
             // These do a gfx_clear or replace whole buffer anyway
             if (!active)
-               gfx_message ("PLEASE/WAIT");
+               gfx_message ("/ / / / / /PLEASE/WAIT");
             else
                image_load (activename, active, 'B');
             addqr ();
@@ -728,7 +749,7 @@ app_main ()
          last = now / 60;
          // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
-            gfx_message ("CANWCH/Y GLOCH/ / /RING/THE/BELL");
+            gfx_message ("/ / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
             image_load (basename, idle, 'K');
          addqr ();
