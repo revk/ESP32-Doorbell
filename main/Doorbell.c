@@ -92,7 +92,7 @@ char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
 volatile char overridemsg[1000] = "";
-volatile uint8_t wificonnect = 0;
+volatile uint8_t wificonnect = 1;
 
 const uint8_t gamma8[256] = {
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -419,7 +419,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       mqttinit = 1;
       return "";
    }
-   if(!strcmp(suffix,"upgrade"))
+   if (!strcmp (suffix, "upgrade"))
    {
       strncpy ((char *) overridemsg, "UPGRADING", sizeof (overridemsg));
       return "";
@@ -653,9 +653,10 @@ app_main ()
          };
          esp_wifi_sta_get_ap_info (&ap);
          char *p = (char *) overridemsg;
-         p += sprintf (p, "/ /%s/%s/ / /WiFi/%s/ /Channel %d/RSSI %d/ /",appname,hostname, (char *) ap.ssid, ap.primary, ap.rssi);
-         if (sta_netif)
+         p += sprintf (p, "[-6]%s/%s/[6] / /", appname, hostname);
+         if (sta_netif && *ap.ssid)
          {
+            p += sprintf (p, "[6]WiFi/[-6]%s/[6] /Channel %d/RSSI %d/ /", (char *) ap.ssid, ap.primary, ap.rssi);
             {
                esp_netif_ip_info_t ip;
                if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
@@ -701,10 +702,13 @@ app_main ()
          }
          *overridename = 0;
       }
-      if (override < up)
-         override = 0;
       if (override)
-         continue;
+      {
+         if (override < up)
+            override = 0;
+         else
+            continue;
+      }
       if (pushed < up)
          pushed = 0;            // Time out
       if (pushed)
