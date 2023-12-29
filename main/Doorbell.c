@@ -29,6 +29,8 @@ static const char TAG[] = "Doorbell";
 
 const uint8_t blink[3] = { 0 }; // dummy
 
+#define	UPDATERATE	60
+
 // Dynamic
 
 #define	settings		\
@@ -626,14 +628,14 @@ app_main ()
          esp_wifi_sta_get_ap_info (&ap);
          char *p = (char *) overridemsg;
          char temp[20];
-         p += sprintf (p, "[-6]%s/%s/[3]%s %s/[6] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
+         p += sprintf (p, "[3] /[-6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
          if (sta_netif && *ap.ssid)
          {
-            p += sprintf (p, "[6]WiFi/[-6]%s/[6] /Channel %d/RSSI %d/ /", (char *) ap.ssid, ap.primary, ap.rssi);
+            p += sprintf (p, "[6]WiFi/[-5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
             {
                esp_netif_ip_info_t ip;
                if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                  p += sprintf (p, "IPv4/" IPSTR "/ /", IP2STR (&ip.ip));
+                  p += sprintf (p, "[6]IPv4/[5]" IPSTR "/[3] /", IP2STR (&ip.ip));
             }
 #ifdef CONFIG_LWIP_IPV6
             {
@@ -641,7 +643,7 @@ app_main ()
                int n = esp_netif_get_all_ip6 (sta_netif, ip);
                if (n)
                {
-                  p += sprintf (p, "IPv6/[2]");
+                  p += sprintf (p, "[6]IPv6/[2]");
                   char *q = p;
                   for (int i = 0; i < n; i++)
                      p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
@@ -650,19 +652,21 @@ app_main ()
                      *q = toupper (*q);
                      q++;
                   }
+                  p += sprintf (p, "/[3] /");
                }
             }
 #endif
          }
+         override = up + 10;
       }
       if (*overridemsg)
       {
          ESP_LOGE (TAG, "Override: %s", overridemsg);
          xSemaphoreTake (mutex, portMAX_DELAY);
-         override = uptime () + holdtime;
+         if (override < up)
+            override = up + holdtime;
          last = 0;
          gfx_lock ();
-         gfx_refresh ();
          gfx_message ((char *) overridemsg);
          *overridemsg = 0;
          addqr ();
@@ -676,10 +680,10 @@ app_main ()
          if (image)
          {
             xSemaphoreTake (mutex, portMAX_DELAY);
-            override = uptime () + holdtime;
+            if (override < up)
+               override = up + holdtime;
             last = 0;
             gfx_lock ();
-            gfx_refresh ();
             image_load (overridename, image, 'B');
             addqr ();
             gfx_unlock ();
@@ -730,7 +734,7 @@ app_main ()
             gfx_unlock ();
             xSemaphoreGive (mutex);
          }
-      } else if (last != now / 60)
+      } else if (last != now / UPDATERATE)
       {                         // Show idle
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
@@ -741,7 +745,7 @@ app_main ()
             lastrefresh = up / refresh;
             gfx_refresh ();
          }
-         last = now / 60;
+         last = now / UPDATERATE;
          // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
             gfx_message ("/ / / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
@@ -749,7 +753,11 @@ app_main ()
             image_load (basename, idle, 'K');
          addqr ();
          gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B);  // Yes slightly in from edge
+#if	UPDATERATE >= 60
          gfx_7seg (2, "%02d:%02d", t.tm_hour, t.tm_min);
+#else
+         gfx_7seg (2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
+#endif
          gfx_unlock ();
          if (!active)
             active = getimage (activename, active);     // Just in case
