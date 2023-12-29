@@ -373,7 +373,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    char value[1000];
    int len = 0;
    *value = 0;
-   if (j)
+   if (j&&jo_here(j)==JO_STRING)
    {
       len = jo_strncpy (j, value, sizeof (value));
       if (len < 0)
