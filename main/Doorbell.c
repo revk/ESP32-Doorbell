@@ -50,7 +50,7 @@ const uint8_t blink[3] = { 0 }; // dummy
 	u8(holdtime,30)	\
 	u8(ledw1,0)	\
 	u8(ledw2,0)	\
-	u32(refresh,3600)	\
+	u32(refresh,86400)	\
 	b(gfxinvert)	\
 	s(imageurl,)	\
 	s(imageidle,Example)	\
@@ -740,9 +740,9 @@ app_main ()
          if (!idle)
             idle = getimage (basename, idle);
          gfx_lock ();
-         if (!last || (refresh && lastrefresh != up / refresh))
+         if (!last || (refresh && lastrefresh != now / refresh))
          {
-            lastrefresh = up / refresh;
+            lastrefresh = now / refresh;
             gfx_refresh ();
          }
          last = now / UPDATERATE;
