@@ -213,12 +213,9 @@ static void
 web_head (httpd_req_t * req, const char *title)
 {
    revk_web_head (req, title);
-   httpd_resp_sendstr_chunk (req, "<style>"     //
-                             "body{font-family:sans-serif;background:#8cf;}"    //
-                             "</style><body><h1>");
-   if (title)
-      httpd_resp_sendstr_chunk (req, title);
-   httpd_resp_sendstr_chunk (req, "</h1>");
+   revk_web_send (req, "<style>"        //
+                  "body{font-family:sans-serif;background:#8cf;}"       //
+                  "</style><body><h1>%s</h1>", title ? : "");
 }
 
 static esp_err_t
@@ -237,7 +234,7 @@ web_root (httpd_req_t * req)
    if (revk_link_down ())
       return revk_web_settings (req);   // Direct to web set up
    web_head (req, *hostname ? hostname : appname);
-   httpd_resp_sendstr_chunk (req, "<p><a href=/push>Ding!</a></p>");
+   revk_web_send (req, "<p><a href=/push>Ding!</a></p>");
    if (*imageurl)
    {
       time_t now = time (0);
@@ -247,28 +244,18 @@ web_root (httpd_req_t * req)
          if (!*name)
             return;
          name = skipcolour (name);
-         httpd_resp_sendstr_chunk (req,
-                                   "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;");
-         if (gfxinvert)
-            httpd_resp_sendstr_chunk (req, ";filter:invert(1)");
-         httpd_resp_sendstr_chunk (req, "'><img wdth=240 height=400 src='");
-         httpd_resp_sendstr_chunk (req, imageurl);
-         httpd_resp_sendstr_chunk (req, "/");
-         httpd_resp_sendstr_chunk (req, name);
-         httpd_resp_sendstr_chunk (req, ".png'><figcaption>");
-         httpd_resp_sendstr_chunk (req, tag);
-         if (!strcmp (name, isidle))
-            httpd_resp_sendstr_chunk (req, " (current)");
-         httpd_resp_sendstr_chunk (req, "</figcaption></figure>");
+         revk_web_send (req,
+                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption>%s%s</figcaption></figure",
+                        gfxinvert ? ";filter:invert(1)" : "", imageurl, name, tag, !strcmp (name, isidle) ? " (current)" : "");
       }
-      httpd_resp_sendstr_chunk (req, "<p>");
+      revk_web_send (req, "<p>");
       i ("Idle", imageidle);
       i ("Easter", imageeast);
       i ("Halloween", imagehall);
       i ("Xmas", imagexmas);
       i ("New Year", imageyear);
       i ("Active", activename);
-      httpd_resp_sendstr_chunk (req, "</p>");
+      revk_web_send (req, "</p>");
    }
    return revk_web_foot (req, 0, 1, NULL);
 }
