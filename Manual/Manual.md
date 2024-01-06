@@ -14,9 +14,10 @@ The idle image shows normally, and can be overlayed with a QR code. A small time
 
 |Name|Time period|
 |----|-----------|
+|`east`|Good Friday to Easter Monday|
+|`hall`|From 4pm on 31st Oct|
 |`xmas`|1st to 25th Dec|
 |`year`|1st to 7th Jan|
-|`hall`|From 4pm on 31st Oct|
 |`idle`|All other times|
 
 ### Active image

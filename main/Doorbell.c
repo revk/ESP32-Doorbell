@@ -100,14 +100,14 @@ volatile uint8_t wificonnect = 1;
 const char *
 getidle (char season)
 {
-   if (*imagexmas &&season=='X')
+   if (*imagexmas && season == 'X')
       return imagexmas;
-   if (*imageyear &&season=='Y')
+   if (*imageyear && season == 'Y')
       return imageyear;
-   if (*imagehall&& season=='H')
+   if (*imagehall && season == 'H')
       return imagehall;
-   if (*imageeast&& season=='E')
-      return imageheast;
+   if (*imageeast && season == 'E')
+      return imageeast;
    return imageidle;
 }
 
@@ -241,7 +241,7 @@ web_root (httpd_req_t * req)
    if (*imageurl)
    {
       time_t now = time (0);
-      const char *isidle = getidle (revk_season(now));
+      const char *isidle = getidle (revk_season (now));
       void i (const char *tag, const char *name)
       {
          if (!*name)
@@ -263,9 +263,10 @@ web_root (httpd_req_t * req)
       }
       httpd_resp_sendstr_chunk (req, "<p>");
       i ("Idle", imageidle);
+      i ("Easter", imageeast);
+      i ("Halloween", imagehall);
       i ("Xmas", imagexmas);
       i ("New Year", imageyear);
-      i ("Halloween", imagehall);
       i ("Active", activename);
       httpd_resp_sendstr_chunk (req, "</p>");
    }
@@ -613,7 +614,7 @@ app_main ()
             gfx_qr (temp, 4);
          }
       }
-      const char *basename = getidle (revk_season(now));
+      const char *basename = getidle (revk_season (now));
       if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
          day = t.tm_mday;
