@@ -260,8 +260,8 @@ web_root (httpd_req_t * req)
       }
       revk_web_send (req, "<p>");
       i ("Idle", imageidle);
-      i ("New Year", imageyear);
       i ("Full moon", imagemoon);
+      i ("New Year", imageyear);
       i ("Easter", imageeast);
       i ("Halloween", imagehall);
       i ("Xmas", imagexmas);
