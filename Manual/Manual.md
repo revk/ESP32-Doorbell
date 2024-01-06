@@ -10,14 +10,15 @@ The PCB sticks directly to the Waveshare 7.5" display, and can easily be mounted
 
 ### Idle image
 
-The idle image shows normally, and can be overlayed with a QR code. A small time (HH:MM) is also shown bottom right. The idle image is rechecked from a web server every hour, or if changed for any reason. It also has automatica seasonable adjustments.
+The idle image shows normally, and can be overlaid with a QR code. A small time (HH:MM) is also shown bottom right. The idle image is rechecked from a web server every hour, or if changed for any reason. It also has automatica seasonable adjustments.
 
 |Name|Time period|
 |----|-----------|
+|`moon`|12 hours either side of a full moon (takes priority over other settings if `imagemoon` is set)|
+|`year`|1st to 7th Jan|
 |`east`|Good Friday to Easter Monday|
 |`hall`|From 4pm on 31st Oct|
 |`xmas`|1st to 25th Dec|
-|`year`|1st to 7th Jan|
 |`idle`|All other times|
 
 ### Active image

@@ -250,18 +250,21 @@ web_root (httpd_req_t * req)
          if (!*name)
             return;
          const char *filename = skipcolour (name);
+         uint32_t rgb = 0x808080;
+         if (filename != name)
+            rgb = revk_rgb (*name);
          revk_web_send (req,
-                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption>%s%s</figcaption></figure>",
-                        gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, tag, !strcmp (name, isidle)
+                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption style='background:#%06lX'>%s%s</figcaption></figure>",
+                        gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, tag, !strcmp (name, isidle)
                         || !strcmp (name, activename) ? " (current)" : "");
       }
       revk_web_send (req, "<p>");
       i ("Idle", imageidle);
+      i ("New Year", imageyear);
+      i ("Full moon", imagemoon);
       i ("Easter", imageeast);
       i ("Halloween", imagehall);
       i ("Xmas", imagexmas);
-      i ("Full moon", imagemoon);
-      i ("New Year", imageyear);
       revk_web_send (req, "</p><p>");
       if (strcmp (activename, imagewait) && strcmp (activename, imagewait) && strcmp (activename, imageaway))
          i ("Active", activename);
