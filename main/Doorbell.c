@@ -254,9 +254,9 @@ web_root (httpd_req_t * req)
          if (filename != name)
             rgb = revk_rgb (*name);
          revk_web_send (req,
-                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption style='background:#%06lX'>%s%s</figcaption></figure>",
-                        gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, tag, !strcmp (name, isidle)
-                        || !strcmp (name, activename) ? " (current)" : "");
+                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption style='background:#%06lX%s'>%s%s</figcaption></figure>",
+                        gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, gfxinvert ? ";filter:invert(1)" : "", tag,
+                        !strcmp (name, isidle) || !strcmp (name, activename) ? " (current)" : "");
       }
       revk_web_send (req, "<p>");
       i ("Idle", imageidle);
@@ -269,8 +269,10 @@ web_root (httpd_req_t * req)
       if (strcmp (activename, imagewait) && strcmp (activename, imagewait) && strcmp (activename, imageaway))
          i ("Active", activename);
       i ("Wait", imagewait);
-      i ("Busy", imagebusy);
-      i ("Away", imageaway);
+      if (*tasbusy)
+         i ("Busy", imagebusy);
+      if (*tasaway)
+         i ("Away", imageaway);
       revk_web_send (req, "</p>");
    }
    return revk_web_foot (req, 0, 1, NULL);
