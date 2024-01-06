@@ -102,7 +102,7 @@ const char *
 getidle (time_t t)
 {
 #ifdef	CONFIG_REVK_LUNAR
-   if (*imagemoon && (t < revk_last_moon (t) + 12 * 3600 || t > revk_next_moon (t) + 12 * 3600))
+   if (*imagemoon && (t < revk_last_moon (t) + 12 * 3600 || t > revk_next_moon (t) - 12 * 3600))
       return imagemoon;
 #endif
    char season = revk_season (t);
