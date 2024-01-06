@@ -55,6 +55,7 @@ const uint8_t blink[3] = { 0 }; // dummy
 	s(imageurl,)	\
 	s(imageidle,Example)	\
 	s(imagexmas,)	\
+	s(imageeast,)	\
 	s(imageyear,)	\
 	s(imagehall,)	\
 	s(imagewait,G:Wait)	\
@@ -97,16 +98,17 @@ volatile char overridemsg[1000] = "";
 volatile uint8_t wificonnect = 1;
 
 const char *
-getidle (struct tm *t)
+getidle (char season)
 {
-   const char *basename = imageidle;    // The idle name, seasonally adjusted
-   if (*imagexmas && t->tm_mon == 11 && t->tm_mday <= 25)
-      basename = imagexmas;
-   if (*imageyear && t->tm_mon == 0 && t->tm_mday <= 7)
-      basename = imageyear;
-   if (*imagehall && t->tm_mon == 9 && t->tm_mday == 31 && t->tm_hour >= 16)
-      basename = imagehall;
-   return basename;
+   if (*imagexmas &&season=='X')
+      return imagexmas;
+   if (*imageyear &&season=='Y')
+      return imageyear;
+   if (*imagehall&& season=='H')
+      return imagehall;
+   if (*imageeast&& season=='E')
+      return imageheast;
+   return imageidle;
 }
 
 const char *
@@ -239,9 +241,7 @@ web_root (httpd_req_t * req)
    if (*imageurl)
    {
       time_t now = time (0);
-      struct tm t;
-      localtime_r (&now, &t);
-      const char *isidle = getidle (&t);
+      const char *isidle = getidle (revk_season(now));
       void i (const char *tag, const char *name)
       {
          if (!*name)
@@ -613,7 +613,7 @@ app_main ()
             gfx_qr (temp, 4);
          }
       }
-      const char *basename = getidle (&t);
+      const char *basename = getidle (revk_season(now));
       if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
          day = t.tm_mday;
