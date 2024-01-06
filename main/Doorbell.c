@@ -54,6 +54,7 @@ const uint8_t blink[3] = { 0 }; // dummy
 	b(gfxinvert)	\
 	s(imageurl,)	\
 	s(imageidle,Example)	\
+	s(imagemoon,)	\
 	s(imagexmas,)	\
 	s(imageeast,)	\
 	s(imageyear,)	\
@@ -98,8 +99,13 @@ volatile char overridemsg[1000] = "";
 volatile uint8_t wificonnect = 1;
 
 const char *
-getidle (char season)
+getidle (time_t t)
 {
+#ifdef	CONFIG_REVK_LUNAR
+   if (*imagemoon && (t < revk_last_moon (t) + 12 * 3600 || t > revk_next_moon (t) + 12 * 3600))
+      return imagemoon;
+#endif
+   char season = revk_season (t);
    if (*imagexmas && season == 'X')
       return imagexmas;
    if (*imageyear && season == 'Y')
@@ -238,23 +244,30 @@ web_root (httpd_req_t * req)
    if (*imageurl)
    {
       time_t now = time (0);
-      const char *isidle = getidle (revk_season (now));
+      const char *isidle = getidle (now);
       void i (const char *tag, const char *name)
       {
          if (!*name)
             return;
-         name = skipcolour (name);
+         const char *filename = skipcolour (name);
          revk_web_send (req,
                         "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption>%s%s</figcaption></figure>",
-                        gfxinvert ? ";filter:invert(1)" : "", imageurl, name, tag, !strcmp (name, isidle) ? " (current)" : "");
+                        gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, tag, !strcmp (name, isidle)
+                        || !strcmp (name, activename) ? " (current)" : "");
       }
       revk_web_send (req, "<p>");
       i ("Idle", imageidle);
       i ("Easter", imageeast);
       i ("Halloween", imagehall);
       i ("Xmas", imagexmas);
+      i ("Full moon", imagemoon);
       i ("New Year", imageyear);
-      i ("Active", activename);
+      revk_web_send (req, "</p><p>");
+      if (strcmp (activename, imagewait) && strcmp (activename, imagewait) && strcmp (activename, imageaway))
+         i ("Active", activename);
+      i ("Wait", imagewait);
+      i ("Busy", imagebusy);
+      i ("Away", imageaway);
       revk_web_send (req, "</p>");
    }
    return revk_web_foot (req, 0, 1, NULL);
@@ -601,7 +614,7 @@ app_main ()
             gfx_qr (temp, 4);
          }
       }
-      const char *basename = getidle (revk_season (now));
+      const char *basename = getidle (now);
       if (!revk_link_down () && day != t.tm_mday)
       {                         // Get files
          day = t.tm_mday;
