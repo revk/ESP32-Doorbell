@@ -245,7 +245,7 @@ web_root (httpd_req_t * req)
             return;
          name = skipcolour (name);
          revk_web_send (req,
-                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption>%s%s</figcaption></figure",
+                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption>%s%s</figcaption></figure>",
                         gfxinvert ? ";filter:invert(1)" : "", imageurl, name, tag, !strcmp (name, isidle) ? " (current)" : "");
       }
       revk_web_send (req, "<p>");
