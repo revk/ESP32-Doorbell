@@ -51,6 +51,7 @@ const uint8_t blink[3] = { 0 }; // dummy
 	s(imageurl,)	\
 	s(imageidle,Example)	\
 	s(imagemoon,)	\
+	s(imagenew,)	\
 	s(imagexmas,)	\
 	s(imageeast,)	\
 	s(imageyear,)	\
@@ -109,8 +110,10 @@ const char *
 getidle (time_t t)
 {
 #ifdef	CONFIG_REVK_LUNAR
-   if (*imagemoon && (t < revk_last_moon (t) + 12 * 3600 || t > revk_next_moon (t) - 12 * 3600))
+   if (*imagemoon && (t < revk_moon_full_last (t) + 12 * 3600 || t > revk_moon_full_next (t) - 12 * 3600))
       return imagemoon;
+   if (*imagenew && t < revk_moon_new (t) + 12 * 3600 && t > revk_moon_new (t) - 12 * 3600)
+      return imagenew;
 #endif
    char season = revk_season (t);
    if (*imagexmas && season == 'X')
@@ -654,7 +657,7 @@ app_main ()
          }
       }
       const char *basename = getidle (now);
-      if (!revk_link_down ()&& hour != t.tm_hour)
+      if (!revk_link_down () && hour != t.tm_hour)
       {                         // Get files
          hour = t.tm_hour;
          xSemaphoreTake (mutex, portMAX_DELAY);

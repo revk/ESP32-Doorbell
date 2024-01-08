@@ -4,17 +4,18 @@
 
 The [EPD75](https://github.com/revk/ESP32-GFX/tree/main/PCB/EPD75) board has power connections, and pads for `1` and `2` which are two inputs. A bell push, if needed, should be connected to `1`. Power can be via the `+`/`-` pads or USB and can be 5V to 35V.
 
-The PCB sticks directly to the Waveshare 7.5" display, and can easily be mounted to a door with a double layer of gekko tape.
+The PCB sticks directly to the Waveshare 7.5" display, and can easily be mounted to a door with a double layer of gecko tape.
 
 ## Basic working
 
 ### Idle image
 
-The idle image shows normally, and can be overlaid with a QR code. A small time (HH:MM) is also shown bottom right. The idle image is rechecked from a web server every hour, or if changed for any reason. It also has automatica seasonable adjustments.
+The idle image shows normally, and can be overlaid with a QR code. A small time (HH:MM) is also shown bottom right. The idle image is rechecked from a web server every hour, or if changed for any reason. It also has automatic seasonal adjustments.
 
 |Name|Time period|
 |----|-----------|
 |`moon`|12 hours either side of a full moon (takes priority over other settings if `imagemoon` is set)|
+|`new`|12 hours either side of a new moon (takes priority over other settings if `imagenew` is set)|
 |`year`|1st to 7th Jan|
 |`east`|Good Friday to Easter Monday|
 |`hall`|From 4pm on 31st Oct|
