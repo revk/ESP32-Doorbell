@@ -85,13 +85,17 @@ uint32_t last = -1;
 char activename[30] = "";
 char overridename[30] = "";
 SemaphoreHandle_t mutex = NULL;
-char mqttinit = 0;
 char tasawaystate = 0;
 char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
 volatile char overridemsg[1000] = "";
-volatile uint8_t wificonnect = 1;
+
+struct
+{
+   uint8_t mqttinit:1;
+   uint8_t wificonnect:1;
+} volatile b;
 
 typedef struct image_s image_t;
 struct image_s
@@ -115,7 +119,9 @@ getidle (time_t t)
    if (*imagenew && t < revk_moon_new (t) + 12 * 3600 && t > revk_moon_new (t) - 12 * 3600)
       return imagenew;
 #endif
+	ESP_LOGE(TAG,"Season");
    char season = revk_season (t);
+   ESP_LOGE (TAG, "Season %c Time %lld", season ? : '-', t);
    if (*imagexmas && season == 'X')
       return imagexmas;
    if (*imageyear && season == 'Y')
@@ -453,7 +459,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       return NULL;              //Not for us or not a command from main MQTT
    if (!strcmp (suffix, "connect"))
    {
-      mqttinit = 1;
+      b.mqttinit = 1;
       return "";
    }
    if (!strcmp (suffix, "upgrade"))
@@ -463,7 +469,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (!strcmp (suffix, "wifi") || !strcmp (suffix, "ipv6"))
    {
-      wificonnect = 1;
+      b.wificonnect = 1;
       return "";
    }
    if (!strcmp (suffix, "message"))
@@ -666,17 +672,17 @@ app_main ()
          active = getimage (activename);
          xSemaphoreGive (mutex);
       }
-      if (mqttinit)
+      if (b.mqttinit)
       {
          ESP_LOGE (TAG, "MQTT Connected");
-         mqttinit = 0;
+         b.mqttinit = 0;
          last = -1;
          tassub (tasaway);
          tassub (tasbusy);
       }
-      if (wificonnect)
+      if (b.wificonnect)
       {
-         wificonnect = 0;
+         b.wificonnect = 0;
          if (startup)
          {
             wifi_ap_record_t ap = {
@@ -792,6 +798,7 @@ app_main ()
          }
       } else if (last != now / UPDATERATE)
       {                         // Show idle
+         ESP_LOGE (TAG, "Display");
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
             idle = getimage (basename);
