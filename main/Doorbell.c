@@ -654,7 +654,7 @@ app_main ()
          }
       }
       const char *basename = getidle (now);
-      if (!revk_link_down () && hour != t.tm_hour)
+      if (!revk_link_down ()&& hour != t.tm_hour)
       {                         // Get files
          hour = t.tm_hour;
          xSemaphoreTake (mutex, portMAX_DELAY);
