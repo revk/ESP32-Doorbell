@@ -1,11 +1,6 @@
 /* Doorbell app */
 /* Copyright ©2019 - 2023 Adrian Kennard, Andrews & Arnold Ltd.See LICENCE file for details .GPL 3.0 */
 
-// TODO
-// More general image cache with If-Modified-Since logic
-// Maybe flash filing system for images even
-// More options for LEDs, especially when we have 24 of them
-
 static const char TAG[] = "Doorbell";
 
 #include "revk.h"
@@ -88,8 +83,6 @@ uint32_t override = 0;
 uint32_t last = -1;
 char activename[30] = "";
 char overridename[30] = "";
-uint8_t *idle = NULL;
-uint8_t *active = NULL;
 SemaphoreHandle_t mutex = NULL;
 char mqttinit = 0;
 char tasawaystate = 0;
@@ -98,6 +91,19 @@ led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
 volatile char overridemsg[1000] = "";
 volatile uint8_t wificonnect = 1;
+
+typedef struct image_s image_t;
+struct image_s
+{
+   image_t *next;               // Next in chain
+   char *url;                   // Image URL
+   uint8_t *data;               // Malloced image
+   time_t loaded;               // When loaded
+};
+
+image_t *cache = NULL;
+image_t *idle = NULL;
+image_t *active = NULL;
 
 const char *
 getidle (time_t t)
@@ -121,21 +127,25 @@ getidle (time_t t)
 const char *
 skipcolour (const char *n)
 {
+   if (!n || !*n)
+      return n;
    if (n && *n && n[1] == ':')
       n += 2;
    return n;
 }
 
-uint8_t *
-getimage (const char *name, uint8_t * prev)
+image_t *
+getimage (const char *name)
 {
-   if (!*imageurl || !name || !*name || revk_link_down ())
-      return prev;
    name = skipcolour (name);
+   if (!*imageurl || !name || !*name)
+      return NULL;
    char *url;
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
-      return prev;
+      return NULL;
+   image_t *i;
+   for (i = cache; i && strcmp (i->url, url); i = i->next);
    ESP_LOGD (TAG, "Get %s", url);
    const int size = gfx_width () * gfx_height () / 8;
    int len = 0;
@@ -144,9 +154,18 @@ getimage (const char *name, uint8_t * prev)
       .url = url,
       .crt_bundle_attach = esp_crt_bundle_attach,
    };
+   int response = 0;
    esp_http_client_handle_t client = esp_http_client_init (&config);
    if (client)
    {
+      if (i && i->loaded)
+      {
+         char when[50];
+         struct tm t;
+         gmtime_r (&i->loaded, &t);
+         strftime (when, sizeof (when), "%a, %d %b %Y %T GMT", &t);
+         esp_http_client_set_header (client, "If-Modified-Since", when);
+      }
       if (!esp_http_client_open (client, 0))
       {
          if (esp_http_client_fetch_headers (client) == size)
@@ -155,11 +174,37 @@ getimage (const char *name, uint8_t * prev)
             if (buf)
                len = esp_http_client_read_response (client, (char *) buf, size);
          }
+         response = esp_http_client_get_status_code (client);
          esp_http_client_close (client);
       }
       esp_http_client_cleanup (client);
    }
-   if (len != size)
+   if (response == 200 && len == size)
+   {                            // Got new image
+      jo_t j = jo_object_alloc ();
+      jo_string (j, "name", name);
+      jo_string (j, "url", url);
+      jo_int (j, "len", len);
+      revk_info ("image", &j);
+      if (gfxinvert)
+         for (int i = 0; i < size; i++)
+            buf[i] ^= 0xFF;
+      if (!i && (i = mallocspi (sizeof (*i))))
+      {
+         i->url = url;
+         url = NULL;
+         i->data = NULL;
+         i->next = cache;
+         cache = i;
+      }
+      if (i)
+      {
+         free (i->data);
+         i->data = buf;
+         buf = NULL;
+         i->loaded = time (0);
+      }
+   } else if (response != 304)
    {
       jo_t j = jo_object_alloc ();
       jo_string (j, "name", name);
@@ -169,35 +214,23 @@ getimage (const char *name, uint8_t * prev)
          jo_int (j, "len", len);
          jo_int (j, "expect", size);
       }
+      if (response)
+         jo_int (j, "response", response);
       revk_error ("image", &j);
-      free (url);
-      free (buf);
-      return prev;
    }
-   if (gfxinvert)
-      for (int i = 0; i < size; i++)
-         buf[i] ^= 0xFF;
-   if (!prev || memcmp (prev, buf, len))
-   {                            // New image
-      jo_t j = jo_object_alloc ();
-      jo_string (j, "name", name);
-      jo_string (j, "url", url);
-      jo_int (j, "len", len);
-      revk_info ("image", &j);
-   }
+   free (buf);
    free (url);
-   free (prev);
-   return buf;
+   return i;
 }
 
 void
-image_load (const char *name, const uint8_t * image, char c)
+image_load (const char *name, image_t * i, char c)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
    if (name && *name && name[1] == ':')
       c = *name;
    led_colour = c;
-   if (image)
-      gfx_load (image);
+   if (i && i->data)
+      gfx_load (i->data);
 }
 
 void
@@ -602,7 +635,7 @@ app_main ()
    gfx_clear (255);             // Black
    gfx_unlock ();
    uint32_t lastrefresh = 0;
-   uint8_t day = 0;
+   uint8_t hour = -1;
    while (1)
    {
       usleep (100000);
@@ -621,12 +654,12 @@ app_main ()
          }
       }
       const char *basename = getidle (now);
-      if (!revk_link_down () && day != t.tm_mday)
+      if (!revk_link_down () && hour != t.tm_hour)
       {                         // Get files
-         day = t.tm_mday;
+         hour = t.tm_hour;
          xSemaphoreTake (mutex, portMAX_DELAY);
-         idle = getimage (basename, idle);
-         active = getimage (activename, active);
+         idle = getimage (basename);
+         active = getimage (activename);
          xSemaphoreGive (mutex);
       }
       if (mqttinit)
@@ -640,44 +673,44 @@ app_main ()
       if (wificonnect)
       {
          wificonnect = 0;
-	 if(startup)
-	 {
-         wifi_ap_record_t ap = {
-         };
-         esp_wifi_sta_get_ap_info (&ap);
-         char *p = (char *) overridemsg;
-         char temp[20];
-         p += sprintf (p, "[3] /[-6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
-         if (sta_netif && *ap.ssid)
+         if (startup)
          {
-            p += sprintf (p, "[6]WiFi/[-5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
+            wifi_ap_record_t ap = {
+            };
+            esp_wifi_sta_get_ap_info (&ap);
+            char *p = (char *) overridemsg;
+            char temp[20];
+            p += sprintf (p, "[3] /[-6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
+            if (sta_netif && *ap.ssid)
             {
-               esp_netif_ip_info_t ip;
-               if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                  p += sprintf (p, "[6]IPv4/[5]" IPSTR "/[3] /", IP2STR (&ip.ip));
-            }
-#ifdef CONFIG_LWIP_IPV6
-            {
-               esp_ip6_addr_t ip[LWIP_IPV6_NUM_ADDRESSES];
-               int n = esp_netif_get_all_ip6 (sta_netif, ip);
-               if (n)
+               p += sprintf (p, "[6]WiFi/[-5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
                {
-                  p += sprintf (p, "[6]IPv6/[2]");
-                  char *q = p;
-                  for (int i = 0; i < n; i++)
-                     p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
-                  while (*q)
-                  {
-                     *q = toupper (*q);
-                     q++;
-                  }
-                  p += sprintf (p, "/[3] /");
+                  esp_netif_ip_info_t ip;
+                  if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
+                     p += sprintf (p, "[6]IPv4/[5]" IPSTR "/[3] /", IP2STR (&ip.ip));
                }
-            }
+#ifdef CONFIG_LWIP_IPV6
+               {
+                  esp_ip6_addr_t ip[LWIP_IPV6_NUM_ADDRESSES];
+                  int n = esp_netif_get_all_ip6 (sta_netif, ip);
+                  if (n)
+                  {
+                     p += sprintf (p, "[6]IPv6/[2]");
+                     char *q = p;
+                     for (int i = 0; i < n; i++)
+                        p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
+                     while (*q)
+                     {
+                        *q = toupper (*q);
+                        q++;
+                     }
+                     p += sprintf (p, "/[3] /");
+                  }
+               }
 #endif
+            }
+            override = up + startup;
          }
-         override = up + startup;
-	 }
       }
       if (*overridemsg)
       {
@@ -696,19 +729,18 @@ app_main ()
       if (*overridename)
       {                         // Special override
          ESP_LOGE (TAG, "Override: %s", overridename);
-         uint8_t *image = getimage (overridename, NULL);
-         if (image)
+         image_t *i = getimage (overridename);
+         if (i)
          {
             xSemaphoreTake (mutex, portMAX_DELAY);
             if (override < up)
                override = up + holdtime;
             last = 0;
             gfx_lock ();
-            image_load (overridename, image, 'B');
+            image_load (overridename, i, 'B');
             addqr ();
             gfx_unlock ();
             xSemaphoreGive (mutex);
-            free (image);
          }
          *overridename = 0;
       }
@@ -727,7 +759,7 @@ app_main ()
          {                      // Show status as was showing idle
             xSemaphoreTake (mutex, portMAX_DELAY);
             if (!active)
-               active = getimage (activename, active);
+               active = getimage (activename);
             last = 0;
             if (*tasbell)
             {
@@ -758,7 +790,7 @@ app_main ()
       {                         // Show idle
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
-            idle = getimage (basename, idle);
+            idle = getimage (basename);
          gfx_lock ();
          if (!last || (refresh && lastrefresh != now / refresh))
          {
@@ -780,7 +812,7 @@ app_main ()
 #endif
          gfx_unlock ();
          if (!active)
-            active = getimage (activename, active);     // Just in case
+            active = getimage (activename);     // Just in case
          xSemaphoreGive (mutex);
       }
    }
