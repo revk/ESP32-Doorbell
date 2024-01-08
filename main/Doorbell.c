@@ -48,6 +48,7 @@ const uint8_t blink[3] = { 0 }; // dummy
 	u8(leds,24)	\
         u8(gfxflip,6)   \
 	u8(holdtime,30)	\
+	u8(startup,10)	\
 	u8(ledw1,0)	\
 	u8(ledw2,0)	\
 	u32(refresh,86400)	\
@@ -639,6 +640,8 @@ app_main ()
       if (wificonnect)
       {
          wificonnect = 0;
+	 if(startup)
+	 {
          wifi_ap_record_t ap = {
          };
          esp_wifi_sta_get_ap_info (&ap);
@@ -673,7 +676,8 @@ app_main ()
             }
 #endif
          }
-         override = up + 10;
+         override = up + startup;
+	 }
       }
       if (*overridemsg)
       {
