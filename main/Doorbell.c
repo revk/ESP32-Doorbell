@@ -119,9 +119,7 @@ getidle (time_t t)
    if (*imagenew && t < revk_moon_new (t) + 12 * 3600 && t > revk_moon_new (t) - 12 * 3600)
       return imagenew;
 #endif
-	ESP_LOGE(TAG,"Season");
    char season = revk_season (t);
-   ESP_LOGE (TAG, "Season %c Time %lld", season ? : '-', t);
    if (*imagexmas && season == 'X')
       return imagexmas;
    if (*imageyear && season == 'Y')
@@ -798,7 +796,6 @@ app_main ()
          }
       } else if (last != now / UPDATERATE)
       {                         // Show idle
-         ESP_LOGE (TAG, "Display");
          xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
             idle = getimage (basename);
