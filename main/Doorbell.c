@@ -151,9 +151,10 @@ getimage (const char *name)
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
       return NULL;
+   ESP_LOGE (TAG, "Get %s", url);
    image_t *i;
    for (i = cache; i && strcmp (i->url, url); i = i->next);
-   ESP_LOGD (TAG, "Get %s", url);
+   ESP_LOGE (TAG, "Got %s%s", url, i ? " (cached)" : "");
    const int size = gfx_width () * gfx_height () / 8;
    int len = 0;
    uint8_t *buf = NULL;
@@ -198,9 +199,8 @@ getimage (const char *name)
             buf[i] ^= 0xFF;
       if (!i && (i = mallocspi (sizeof (*i))))
       {
+         memset (i, 0, sizeof (*i));
          i->url = url;
-         url = NULL;
-         i->data = NULL;
          i->next = cache;
          cache = i;
       }
@@ -386,6 +386,8 @@ register_get_uri (const char *uri, esp_err_t (*handler) (httpd_req_t * r))
 const char *
 gfx_qr (const char *value, int s)
 {
+   if (!value || !*value)
+      return "No value";
 #ifndef	CONFIG_GFX_NONE
    unsigned int width = 0;
  uint8_t *qr = qr_encode (strlen (value), value, widthp: &width, noquiet:1);
@@ -681,6 +683,14 @@ app_main ()
       if (b.wificonnect)
       {
          b.wificonnect = 0;
+         getimage (imageidle);  // Cache stuff
+         getimage (imagewait);
+         getimage (imagebusy);
+         getimage (imagexmas);
+         getimage (imagemoon);
+         getimage (imagenew);
+         getimage (imagehall);
+         getimage (imageeast);
          if (startup)
          {
             wifi_ap_record_t ap = {
@@ -819,8 +829,6 @@ app_main ()
          gfx_7seg (2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
 #endif
          gfx_unlock ();
-         if (!active)
-            active = getimage (activename);     // Just in case
          xSemaphoreGive (mutex);
       }
    }
