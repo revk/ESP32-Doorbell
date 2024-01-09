@@ -151,10 +151,10 @@ getimage (const char *name)
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
       return NULL;
-   ESP_LOGE (TAG, "Get %s", url);
-   image_t *i;
+   //ESP_LOGE (TAG, "Get %s", url);
+   image_t *i = NULL;
    for (i = cache; i && strcmp (i->url, url); i = i->next);
-   ESP_LOGE (TAG, "Got %s%s", url, i ? " (cached)" : "");
+   ESP_LOGD (TAG, "Got %s%s", url, i ? " (cached)" : "");
    const int size = gfx_width () * gfx_height () / 8;
    int len = 0;
    uint8_t *buf = NULL;
@@ -595,6 +595,9 @@ app_main ()
 #undef b
 #undef s
       revk_start ();
+
+   revk_task ("push", push_task, NULL, 4);
+
    setactive (imagewait);
 
    if (leds)
@@ -640,10 +643,11 @@ app_main ()
          revk_error ("gfx", &j);
       }
    }
-   revk_task ("push", push_task, NULL, 4);
+
    gfx_lock ();
    gfx_clear (255);             // Black
    gfx_unlock ();
+
    uint32_t lastrefresh = 0;
    uint8_t hour = -1;
    while (1)
