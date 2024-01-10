@@ -201,6 +201,7 @@ getimage (const char *name)
       {
          memset (i, 0, sizeof (*i));
          i->url = url;
+         url = NULL;
          i->next = cache;
          cache = i;
       }
