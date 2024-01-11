@@ -688,6 +688,7 @@ app_main ()
       if (b.wificonnect)
       {
          b.wificonnect = 0;
+         xSemaphoreTake (mutex, portMAX_DELAY);
          getimage (imageidle);  // Cache stuff
          getimage (imagewait);
          getimage (imagebusy);
@@ -696,6 +697,7 @@ app_main ()
          getimage (imagenew);
          getimage (imagehall);
          getimage (imageeast);
+         xSemaphoreGive (mutex);
          if (startup)
          {
             wifi_ap_record_t ap = {
