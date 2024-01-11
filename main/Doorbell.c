@@ -182,6 +182,8 @@ getimage (const char *name)
             if (buf)
                len = esp_http_client_read_response (client, (char *) buf, size);
          }
+         if (!buf)
+            esp_http_client_flush_response (client, &len);
          response = esp_http_client_get_status_code (client);
          esp_http_client_close (client);
       }
