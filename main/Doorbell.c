@@ -101,9 +101,9 @@ typedef struct image_s image_t;
 struct image_s
 {
    image_t *next;               // Next in chain
-   char *url;                   // Image URL
-   uint8_t *data;               // Malloced image
    time_t loaded;               // When loaded
+   char *url;                   // Malloced Image URL
+   uint8_t *data;               // Malloced image
 };
 
 image_t *cache = NULL;
@@ -147,14 +147,14 @@ getimage (const char *name)
    name = skipcolour (name);
    if (!*imageurl || !name || !*name)
       return NULL;
-   char *url;
+   char *url=NULL;
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
       return NULL;
-   //ESP_LOGE (TAG, "Get %s", url);
+   ESP_LOGE (TAG, "Get %s", url);
    image_t *i = NULL;
    for (i = cache; i && strcmp (i->url, url); i = i->next);
-   ESP_LOGD (TAG, "Got %s%s", url, i ? " (cached)" : "");
+   ESP_LOGE (TAG, "Got %s%s", url, i ? " (cached)" : "");
    const int size = gfx_width () * gfx_height () / 8;
    int len = 0;
    uint8_t *buf = NULL;
