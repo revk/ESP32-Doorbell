@@ -792,11 +792,7 @@ app_main ()
                revk_mqtt_send_raw (topic, 0, "ON", 1);
                free (topic);
             }
-            xSemaphoreTake (mutex, portMAX_DELAY);
-            last = 0;
-            if (!active)
-               active = getimage (activename);
-            if (*toot)
+            if (last && *toot)
             {
                char *pl = NULL;
                asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900,
@@ -804,6 +800,10 @@ app_main ()
                revk_mqtt_send_raw ("toot", 0, pl, 1);
                free (pl);
             }
+            last = 0;
+            xSemaphoreTake (mutex, portMAX_DELAY);
+            if (!active)
+               active = getimage (activename);
             gfx_lock ();
             // These do a gfx_clear or replace whole buffer anyway
             if (!active)
@@ -850,13 +850,13 @@ revk_web_extra (httpd_req_t * req)
    revk_web_setting_s (req, "Base URL", "imageurl", imageurl, NULL, "URL", 0);
    revk_web_setting_s (req, "Idle", "imageidle", imageidle, NULL, "Name (with colour: prefix is needed)", 0);
    if (*tasbusy)
-      revk_web_setting_s (req, "Busy", "imagebusy", imagebusy, NULL, NULL,0);
+      revk_web_setting_s (req, "Busy", "imagebusy", imagebusy, NULL, NULL, 0);
    if (*tasaway)
-      revk_web_setting_s (req, "Away", "imageaway", imageaway, NULL, NULL,0);
-   revk_web_setting_s (req, "Full moon", "imagemoon", imagemoon, NULL, NULL,0);
-   revk_web_setting_s (req, "New moon", "imagenew", imagenew, NULL, NULL,0);
-   revk_web_setting_s (req, "New year", "imageyear", imageyear, NULL, NULL,0);
-   revk_web_setting_s (req, "Easter", "imageeast", imageeast, NULL, NULL,0);
-   revk_web_setting_s (req, "Halloween", "imagehall", imagehall, NULL, NULL,0);
-   revk_web_setting_s (req, "Xmas", "imagexmas", imagexmas, NULL, NULL,0);
+      revk_web_setting_s (req, "Away", "imageaway", imageaway, NULL, NULL, 0);
+   revk_web_setting_s (req, "Full moon", "imagemoon", imagemoon, NULL, NULL, 0);
+   revk_web_setting_s (req, "New moon", "imagenew", imagenew, NULL, NULL, 0);
+   revk_web_setting_s (req, "New year", "imageyear", imageyear, NULL, NULL, 0);
+   revk_web_setting_s (req, "Easter", "imageeast", imageeast, NULL, NULL, 0);
+   revk_web_setting_s (req, "Halloween", "imagehall", imagehall, NULL, NULL, 0);
+   revk_web_setting_s (req, "Xmas", "imagexmas", imagexmas, NULL, NULL, 0);
 }
