@@ -689,8 +689,10 @@ app_main ()
          b.wificonnect = 0;
          xSemaphoreTake (mutex, portMAX_DELAY);
          getimage (imageidle);  // Cache stuff
-         getimage (imagewait);
-         getimage (imagebusy);
+         if (*tasaway)
+            getimage (imagewait);
+         if (*tasbusy)
+            getimage (imagebusy);
          getimage (imagexmas);
          getimage (imagemoon);
          getimage (imagenew);
@@ -840,4 +842,15 @@ app_main ()
          xSemaphoreGive (mutex);
       }
    }
+}
+
+void
+revk_web_extra (httpd_req_t * req)
+{
+   revk_web_setting_s (req, "Base URL", "imageurl", imageurl, "URL", NULL, 0);
+   revk_web_setting_s (req, "Idle", "imageidle", imageidle, "Name", NULL, 0);
+   if (*tasbusy)
+      revk_web_setting_s (req, "Busy", "imagebusy", imageidle, "Name", NULL, 0);
+   if (*tasaway)
+      revk_web_setting_s (req, "Away", "imageaway", imageidle, "Name", NULL, 0);
 }
