@@ -850,7 +850,13 @@ revk_web_extra (httpd_req_t * req)
    revk_web_setting_s (req, "Base URL", "imageurl", imageurl, NULL, "URL", 0);
    revk_web_setting_s (req, "Idle", "imageidle", imageidle, NULL, "Name (with colour: prefix is needed)", 0);
    if (*tasbusy)
-      revk_web_setting_s (req, "Busy", "imagebusy", imagebusy, NULL, "Name (with colour: prefix is needed)", 0);
+      revk_web_setting_s (req, "Busy", "imagebusy", imagebusy, NULL, NULL,0);
    if (*tasaway)
-      revk_web_setting_s (req, "Away", "imageaway", imageaway, NULL, "Name (with colour: prefix is needed)", 0);
+      revk_web_setting_s (req, "Away", "imageaway", imageaway, NULL, NULL,0);
+   revk_web_setting_s (req, "Full moon", "imagemoon", imagemoon, NULL, NULL,0);
+   revk_web_setting_s (req, "New moon", "imagenew", imagenew, NULL, NULL,0);
+   revk_web_setting_s (req, "New year", "imageyear", imageyear, NULL, NULL,0);
+   revk_web_setting_s (req, "Easter", "imageeast", imageeast, NULL, NULL,0);
+   revk_web_setting_s (req, "Halloween", "imagehall", imagehall, NULL, NULL,0);
+   revk_web_setting_s (req, "Xmas", "imagexmas", imagexmas, NULL, NULL,0);
 }
