@@ -258,7 +258,6 @@ setactive (char *value)
       return;
    xSemaphoreTake (mutex, portMAX_DELAY);
    strncpy (activename, value, sizeof (activename));
-   free (active);
    active = NULL;
    if (!last)
       last = -1;                // Redisplay
