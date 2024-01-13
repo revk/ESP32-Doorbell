@@ -151,18 +151,8 @@ getimage (const char *name)
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
       return NULL;
-   ESP_LOGE (TAG, "Get %p %s", url,url);
    image_t *i = NULL;
-   ESP_LOGE(TAG,"Cache %p",cache);
-   for(i=cache;i;i=i->next)
-   {
-	   ESP_LOGE(TAG,"Item %p",i);
-	   ESP_LOGE(TAG,"Next %p",i->next);
-	   ESP_LOGE(TAG,"URL %p",i->url);
-	   ESP_LOGE(TAG,"URL %s",i->url);
-   }
    for (i = cache; i && strcmp (i->url, url); i = i->next);
-   ESP_LOGE (TAG, "Getting %s%s", url, i ? " (cached)" : "");
    const int size = gfx_width () * gfx_height () / 8;
    int len = 0;
    uint8_t *buf = NULL;
