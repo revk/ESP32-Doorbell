@@ -147,7 +147,7 @@ getimage (const char *name)
    name = skipcolour (name);
    if (!*imageurl || !name || !*name)
       return NULL;
-   char *url=NULL;
+   char *url = NULL;
    asprintf (&url, "%s/%s.mono", imageurl, name);
    if (!url)
       return NULL;
@@ -782,19 +782,21 @@ app_main ()
          pushed = 0;            // Time out
       if (pushed)
       {                         // Bell was pushed
-         if (last)
-         {                      // Show status as was showing idle
-            xSemaphoreTake (mutex, portMAX_DELAY);
-            if (!active)
-               active = getimage (activename);
-            last = 0;
-            if (*tasbell)
+         static uint32_t tick = 0;
+         if (last || up / 5 != tick)
+         {                      // Show, and reinforce image
+            tick = up / 5;
+            if (last && *tasbell)
             {
                char *topic = NULL;
                asprintf (&topic, "cmnd/%s/POWER", tasbell);
                revk_mqtt_send_raw (topic, 0, "ON", 1);
                free (topic);
             }
+            xSemaphoreTake (mutex, portMAX_DELAY);
+            last = 0;
+            if (!active)
+               active = getimage (activename);
             if (*toot)
             {
                char *pl = NULL;
