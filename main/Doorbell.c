@@ -689,10 +689,11 @@ app_main ()
          b.wificonnect = 0;
          xSemaphoreTake (mutex, portMAX_DELAY);
          getimage (imageidle);  // Cache stuff
-         if (*tasaway)
-            getimage (imagewait);
+         getimage (imagewait);
          if (*tasbusy)
             getimage (imagebusy);
+         if (*tasaway)
+            getimage (imageaway);
          getimage (imagexmas);
          getimage (imagemoon);
          getimage (imagenew);
@@ -849,6 +850,7 @@ revk_web_extra (httpd_req_t * req)
 {
    revk_web_setting_s (req, "Base URL", "imageurl", imageurl, NULL, "URL", 0);
    revk_web_setting_s (req, "Idle", "imageidle", imageidle, NULL, "Name (with colour: prefix is needed)", 0);
+   revk_web_setting_s (req, "Wait", "imagewait", imagewait, NULL, NULL, 0);
    if (*tasbusy)
       revk_web_setting_s (req, "Busy", "imagebusy", imagebusy, NULL, NULL, 0);
    if (*tasaway)
