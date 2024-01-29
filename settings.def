@@ -1,0 +1,36 @@
+gpio	btn2		-42
+gpio	btn1		-41
+gpio	gfx.ena
+gpio	gfx.mosi	40
+gpio	gfx.sck		39
+gpio	gfx.cs		38
+gpio	gfx.dc		37
+gpio	gfx.rst		36
+gpio	gfx.busy	35
+u8	gfx.flip	6
+bit	gfx.invert
+gpio	rgb		34
+gpio	relay		33
+u8	leds		24
+u8	holdtime	30
+u8	startup		10
+u8	ledw1
+u8	ledw2
+u32	refresh		86400
+s	image.url
+s	image.idle	Example
+s	image.moon
+s	image.new
+s	image.val
+s	image.xmas
+s	image.east
+s	image.year
+s	image.hall
+s	image.wait	G:Wait
+s	image.busy	Y:Busy
+s	image.away	R:Away
+s	postcode
+s	toot
+s	tas.bell
+s	tas.busy
+s	tas.away

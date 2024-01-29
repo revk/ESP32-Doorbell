@@ -16,68 +16,8 @@ static const char TAG[] = "Doorbell";
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
 
-#define	MAXGPIO	36
-#define BITFIELDS "-^"
-#define PORT_INV 0x4000
-#define PORT_PU 0x2000
-#define port_mask(p) ((p)&0xFF) // 16 bit
-
-const uint8_t blink[3] = { 0 }; // dummy
-
 #define	UPDATERATE	60
 
-// Dynamic
-
-#define	settings		\
-	io(gfxena,)	\
-        io(btn2,-42)     \
-        io(btn1,-41)     \
-        io(gfxmosi,40)  \
-        io(gfxsck,39)   \
-        io(gfxcs,38)    \
-        io(gfxdc,37)    \
-        io(gfxrst,36)   \
-        io(gfxbusy,35)  \
-        io(rgb,34)      \
-        io(relay,33)    \
-	u8(leds,24)	\
-        u8(gfxflip,6)   \
-	u8(holdtime,30)	\
-	u8(startup,10)	\
-	u8(ledw1,0)	\
-	u8(ledw2,0)	\
-	u32(refresh,86400)	\
-	b(gfxinvert)	\
-	s(imageurl,)	\
-	s(imageidle,Example)	\
-	s(imagemoon,)	\
-	s(imagenew,)	\
-	s(imagexmas,)	\
-	s(imageeast,)	\
-	s(imageyear,)	\
-	s(imagehall,)	\
-	s(imagewait,G:Wait)	\
-	s(imagebusy,Y:Busy)	\
-	s(imageaway,R:Away)	\
-	s(postcode,)	\
-	s(toot,)		\
-	s(tasbell,)	\
-	s(tasaway,)	\
-	s(tasbusy,)	\
-
-#define u32(n,d)        uint32_t n;
-#define s8(n,d) int8_t n;
-#define u8(n,d) uint8_t n;
-#define b(n) uint8_t n;
-#define s(n,d) char * n;
-#define io(n,d)           uint16_t n;
-settings
-#undef io
-#undef u32
-#undef s8
-#undef u8
-#undef b
-#undef s
    httpd_handle_t webserver = NULL;
 uint32_t pushed = 0;
 uint32_t override = 0;
@@ -113,20 +53,20 @@ image_t *active = NULL;
 const char *
 getidle (time_t t)
 {
-#ifdef	CONFIG_REVK_LUNAR
-   if (*imagemoon && (t < revk_moon_full_last (t) + 12 * 3600 || t > revk_moon_full_next (t) - 12 * 3600))
+   const char *season = revk_season (t);
+   if (*imagexmas && strchr(season,'M'))
       return imagemoon;
-   if (*imagenew && t < revk_moon_new (t) + 12 * 3600 && t > revk_moon_new (t) - 12 * 3600)
+   if (*imagexmas && strchr(season,'N'))
       return imagenew;
-#endif
-   char season = revk_season (t);
-   if (*imagexmas && season == 'X')
+   if (*imagexmas && strchr(season,'V'))
+      return imageval;
+   if (*imagexmas && strchr(season,'X'))
       return imagexmas;
-   if (*imageyear && season == 'Y')
+   if (*imageyear && strchr(season,'Y'))
       return imageyear;
-   if (*imagehall && season == 'H')
+   if (*imagehall && strchr(season, 'H'))
       return imagehall;
-   if (*imageeast && season == 'E')
+   if (*imageeast && strchr(season, 'E'))
       return imageeast;
    return imageidle;
 }
@@ -306,6 +246,7 @@ web_root (httpd_req_t * req)
       i ("New Year", imageyear);
       i ("Easter", imageeast);
       i ("Halloween", imagehall);
+      i ("Valentine", imageval);
       i ("Xmas", imagexmas);
       revk_web_send (req, "</p><p>");
       if (strcmp (activename, imagewait) && strcmp (activename, imagewait) && strcmp (activename, imageaway))
@@ -508,16 +449,17 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 void
 push_task (void *arg)
 {
-
-   gpio_reset_pin (port_mask (btn1));
-   gpio_set_direction (port_mask (btn1), GPIO_MODE_INPUT);
+	if(btn1.set)
+	{
+   gpio_reset_pin (btn1.num);
+   gpio_set_direction (btn1.num, GPIO_MODE_INPUT);
    while (1)
    {
-      uint8_t l = gpio_get_level (port_mask (btn1));
+      uint8_t l = gpio_get_level (btn1.num);
       if (!l)
          pushed = uptime () + holdtime;
       usleep (10000);
-   }
+   }}
 }
 
 void
@@ -578,22 +520,6 @@ app_main ()
    mutex = xSemaphoreCreateBinary ();
    xSemaphoreGive (mutex);
    revk_boot (&app_callback);
-   revk_register ("gfx", 0, sizeof (gfxcs), &gfxcs, "- ", SETTING_SET | SETTING_BITFIELD | SETTING_SECRET);     // Header
-   revk_register ("image", 0, 0, &imageurl, "http://ota.revk.uk/Doorbell", SETTING_SECRET);     // Header
-   revk_register ("tas", 0, 0, &tasbell, NULL, SETTING_SECRET); // Header
-#define io(n,d)           revk_register(#n,0,sizeof(n),&n,"- "#d,SETTING_SET|SETTING_BITFIELD);
-#define b(n) revk_register(#n,0,sizeof(n),&n,NULL,SETTING_BOOLEAN);
-#define u32(n,d) revk_register(#n,0,sizeof(n),&n,#d,0);
-#define s8(n,d) revk_register(#n,0,sizeof(n),&n,#d,SETTING_SIGNED);
-#define u8(n,d) revk_register(#n,0,sizeof(n),&n,#d,0);
-#define s(n,d) revk_register(#n,0,0,&n,#d,0);
-   settings
-#undef io
-#undef u32
-#undef s8
-#undef u8
-#undef b
-#undef s
       revk_start ();
 
    revk_task ("push", push_task, NULL, 4);
@@ -603,11 +529,11 @@ app_main ()
    if (leds)
    {
       led_strip_config_t strip_config = {
-         .strip_gpio_num = (port_mask (rgb)),
+         .strip_gpio_num = (rgb.num),
          .max_leds = leds,
          .led_pixel_format = LED_PIXEL_FORMAT_GRB,      // Pixel format of your LED strip
          .led_model = LED_MODEL_WS2812, // LED strip model
-         .flags.invert_out = ((rgb & PORT_INV) ? 1 : 0),        // whether to invert the output signal (useful when your hardware has a level inverter)
+         .flags.invert_out = rgb.invert,
       };
       led_strip_rmt_config_t rmt_config = {
          .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
@@ -633,7 +559,7 @@ app_main ()
       revk_web_settings_add (webserver);
    }
    {
-    const char *e = gfx_init (cs: port_mask (gfxcs), sck: port_mask (gfxsck), mosi: port_mask (gfxmosi), dc: port_mask (gfxdc), rst: port_mask (gfxrst), busy: port_mask (gfxbusy), ena: port_mask (gfxena), flip: gfxflip, direct: 1, invert:gfxinvert);
+    const char *e = gfx_init (cs: gfxcs.num, sck: gfxsck.num, mosi: gfxmosi.num, dc: gfxdc.num, rst: gfxrst.num, busy: gfxbusy.num, ena: gfxena.num, flip: gfxflip, direct: 1, invert:gfxinvert);
       if (e)
       {
          ESP_LOGE (TAG, "gfx %s", e);
@@ -697,6 +623,7 @@ app_main ()
          getimage (imagexmas);
          getimage (imagemoon);
          getimage (imagenew);
+         getimage (imageval);
          getimage (imagehall);
          getimage (imageeast);
          xSemaphoreGive (mutex);
@@ -858,6 +785,7 @@ revk_web_extra (httpd_req_t * req)
    revk_web_setting_s (req, "Full moon", "imagemoon", imagemoon, NULL, NULL, 0);
    revk_web_setting_s (req, "New moon", "imagenew", imagenew, NULL, NULL, 0);
    revk_web_setting_s (req, "New year", "imageyear", imageyear, NULL, NULL, 0);
+   revk_web_setting_s (req, "Valentine", "imageval", imageval, NULL, NULL, 0);
    revk_web_setting_s (req, "Easter", "imageeast", imageeast, NULL, NULL, 0);
    revk_web_setting_s (req, "Halloween", "imagehall", imagehall, NULL, NULL, 0);
    revk_web_setting_s (req, "Xmas", "imagexmas", imagexmas, NULL, NULL, 0);
