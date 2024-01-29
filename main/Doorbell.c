@@ -18,7 +18,7 @@ static const char TAG[] = "Doorbell";
 
 #define	UPDATERATE	60
 
-   httpd_handle_t webserver = NULL;
+httpd_handle_t webserver = NULL;
 uint32_t pushed = 0;
 uint32_t override = 0;
 uint32_t last = -1;
@@ -54,19 +54,19 @@ const char *
 getidle (time_t t)
 {
    const char *season = revk_season (t);
-   if (*imagexmas && strchr(season,'M'))
+   if (*imagexmas && strchr (season, 'M'))
       return imagemoon;
-   if (*imagexmas && strchr(season,'N'))
+   if (*imagexmas && strchr (season, 'N'))
       return imagenew;
-   if (*imagexmas && strchr(season,'V'))
+   if (*imagexmas && strchr (season, 'V'))
       return imageval;
-   if (*imagexmas && strchr(season,'X'))
+   if (*imagexmas && strchr (season, 'X'))
       return imagexmas;
-   if (*imageyear && strchr(season,'Y'))
+   if (*imageyear && strchr (season, 'Y'))
       return imageyear;
-   if (*imagehall && strchr(season, 'H'))
+   if (*imagehall && strchr (season, 'H'))
       return imagehall;
-   if (*imageeast && strchr(season, 'E'))
+   if (*imageeast && strchr (season, 'E'))
       return imageeast;
    return imageidle;
 }
@@ -449,17 +449,17 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 void
 push_task (void *arg)
 {
-	if(btn1.set)
-	{
-   gpio_reset_pin (btn1.num);
-   gpio_set_direction (btn1.num, GPIO_MODE_INPUT);
-   while (1)
+   if (btn1.set)
    {
-      uint8_t l = gpio_get_level (btn1.num);
-      if (!l)
-         pushed = uptime () + holdtime;
-      usleep (10000);
-   }}
+      revk_gpio_input (btn1);
+      while (1)
+      {
+         uint8_t l = revk_gpio_get (btn1);
+         if (l)
+            pushed = uptime () + holdtime;
+         usleep (10000);
+      }
+   }
 }
 
 void
@@ -520,7 +520,7 @@ app_main ()
    mutex = xSemaphoreCreateBinary ();
    xSemaphoreGive (mutex);
    revk_boot (&app_callback);
-      revk_start ();
+   revk_start ();
 
    revk_task ("push", push_task, NULL, 4);
 
@@ -545,7 +545,6 @@ app_main ()
          revk_task ("led", led_task, NULL, 4);
       image_load (NULL, NULL, 'M');
    }
-
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
    config.max_uri_handlers = 5 + revk_num_web_handlers ();
