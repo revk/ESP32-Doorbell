@@ -449,16 +449,18 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 void
 push_task (void *arg)
 {
-   if (btn1.set)
+   if (!btn1.set)
    {
-      revk_gpio_input (btn1);
-      while (1)
-      {
-         uint8_t l = revk_gpio_get (btn1);
-         if (l)
-            pushed = uptime () + holdtime;
-         usleep (10000);
-      }
+      vTaskDelete (NULL);
+      return;
+   }
+   revk_gpio_input (btn1);
+   while (1)
+   {
+      uint8_t l = revk_gpio_get (btn1);
+      if (l)
+         pushed = uptime () + holdtime;
+      usleep (10000);
    }
 }
 
