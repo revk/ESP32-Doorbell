@@ -674,7 +674,7 @@ app_main ()
          if (override < up)
             override = up + holdtime;
          last = 0;
-         for (int i = 0; i < 3; i++)
+         for (int n = 0; n < 3; n++)
          {
             gfx_lock ();
             gfx_message ((char *) overridemsg);
@@ -694,7 +694,7 @@ app_main ()
             if (override < up)
                override = up + holdtime;
             last = 0;
-            for (int i = 0; i < 3; i++)
+            for (int n = 0; n < 3; n++)
             {
                gfx_lock ();
                image_load (overridename, i, 'B');
