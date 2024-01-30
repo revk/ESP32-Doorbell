@@ -53,20 +53,20 @@ image_t *active = NULL;
 const char *
 getidle (time_t t)
 {
-   const char *season = revk_season (t);
-   if (*imagexmas && strchr (season, 'M'))
+   const char season = *revk_season (t);
+   if (*imagexmas && season== 'M')
       return imagemoon;
-   if (*imagexmas && strchr (season, 'N'))
+   if (*imagexmas && season== 'N')
       return imagenew;
-   if (*imagexmas && strchr (season, 'V'))
+   if (*imagexmas && season== 'V')
       return imageval;
-   if (*imagexmas && strchr (season, 'X'))
+   if (*imagexmas && season== 'X')
       return imagexmas;
-   if (*imageyear && strchr (season, 'Y'))
+   if (*imageyear && season== 'Y')
       return imageyear;
-   if (*imagehall && strchr (season, 'H'))
+   if (*imagehall && season== 'H')
       return imagehall;
-   if (*imageeast && strchr (season, 'E'))
+   if (*imageeast && season== 'E')
       return imageeast;
    return imageidle;
 }
