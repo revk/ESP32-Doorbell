@@ -54,19 +54,19 @@ const char *
 getidle (time_t t)
 {
    const char season = *revk_season (t);
-   if (*imagexmas && season== 'M')
+   if (*imagexmas && season == 'M')
       return imagemoon;
-   if (*imagexmas && season== 'N')
+   if (*imagexmas && season == 'N')
       return imagenew;
-   if (*imagexmas && season== 'V')
+   if (*imagexmas && season == 'V')
       return imageval;
-   if (*imagexmas && season== 'X')
+   if (*imagexmas && season == 'X')
       return imagexmas;
-   if (*imageyear && season== 'Y')
+   if (*imageyear && season == 'Y')
       return imageyear;
-   if (*imagehall && season== 'H')
+   if (*imagehall && season == 'H')
       return imagehall;
-   if (*imageeast && season== 'E')
+   if (*imageeast && season == 'E')
       return imageeast;
    return imageidle;
 }
@@ -674,11 +674,14 @@ app_main ()
          if (override < up)
             override = up + holdtime;
          last = 0;
-         gfx_lock ();
-         gfx_message ((char *) overridemsg);
-         *overridemsg = 0;
-         addqr ();
-         gfx_unlock ();
+         for (int i = 0; i < 3; i++)
+         {
+            gfx_lock ();
+            gfx_message ((char *) overridemsg);
+            *overridemsg = 0;
+            addqr ();
+            gfx_unlock ();
+         }
          xSemaphoreGive (mutex);
       }
       if (*overridename)
@@ -691,14 +694,13 @@ app_main ()
             if (override < up)
                override = up + holdtime;
             last = 0;
-            gfx_lock ();
-            image_load (overridename, i, 'B');
-            addqr ();
-            gfx_unlock ();
-            gfx_lock ();
-            image_load (overridename, i, 'B');
-            addqr ();
-            gfx_unlock ();
+            for (int i = 0; i < 3; i++)
+            {
+               gfx_lock ();
+               image_load (overridename, i, 'B');
+               addqr ();
+               gfx_unlock ();
+            }
             xSemaphoreGive (mutex);
          }
          *overridename = 0;
