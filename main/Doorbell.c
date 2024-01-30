@@ -695,6 +695,10 @@ app_main ()
             image_load (overridename, i, 'B');
             addqr ();
             gfx_unlock ();
+            gfx_lock ();
+            image_load (overridename, i, 'B');
+            addqr ();
+            gfx_unlock ();
             xSemaphoreGive (mutex);
          }
          *overridename = 0;
