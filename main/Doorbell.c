@@ -25,8 +25,6 @@ uint32_t last = -1;
 char activename[30] = "";
 char overridename[30] = "";
 SemaphoreHandle_t mutex = NULL;
-char tasawaystate = 0;
-char tasbusystate = 0;
 led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
 volatile char overridemsg[1000] = "";
@@ -35,6 +33,8 @@ struct
 {
    uint8_t mqttinit:1;
    uint8_t wificonnect:1;
+   uint8_t tasawaystate:1;
+   uint8_t tasbusystate:1;
 } volatile b;
 
 typedef struct image_s image_t;
@@ -390,10 +390,10 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       if (jo_find (j, "POWER") == JO_STRING)
       {                         // "ON" or "OFF"
          if (!strcmp (target, tasaway))
-            tasawaystate = !jo_strcmp (j, "OFF");       // Off means we are away
+            b.tasawaystate = !jo_strcmp (j, "OFF");     // Off means we are away
          else if (!strcmp (target, tasbusy))
-            tasbusystate = !jo_strcmp (j, "OFF");       // Off means we are busy
-         setactive (tasawaystate ? imageaway : tasbusystate ? imagebusy : imagewait);
+            b.tasbusystate = !jo_strcmp (j, "OFF");     // Off means we are busy
+         setactive (b.tasawaystate ? imageaway : b.tasbusystate ? imagebusy : imagewait);
       }
    }
    if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
@@ -523,6 +523,8 @@ app_main ()
    xSemaphoreGive (mutex);
    revk_boot (&app_callback);
    revk_start ();
+
+   revk_gpio_output (relay);
 
    revk_task ("push", push_task, NULL, 4);
 
@@ -720,12 +722,19 @@ app_main ()
          if (last || up / 5 != tick)
          {                      // Show, and reinforce image
             tick = up / 5;
-            if (last && *tasbell)
+            if (last)
             {
-               char *topic = NULL;
-               asprintf (&topic, "cmnd/%s/POWER", tasbell);
-               revk_mqtt_send_raw (topic, 0, "ON", 1);
-               free (topic);
+               revk_gpio_set (relay, 1);
+               if (*tasbell)
+               {
+                  char *topic = NULL;
+                  asprintf (&topic, "cmnd/%s/POWER", tasbell);
+                  revk_mqtt_send_raw (topic, 0, "ON", 1);
+                  free (topic);
+               }
+               const char *msg = b.tasawaystate ? mqttaway : b.tasbusystate ? mqttbusy : mqttbell;
+               if (*msg)
+                  revk_mqtt_send_str (msg);
             }
             if (last && *toot)
             {
@@ -735,7 +744,6 @@ app_main ()
                revk_mqtt_send_raw ("toot", 0, pl, 1);
                free (pl);
             }
-            last = 0;
             xSemaphoreTake (mutex, portMAX_DELAY);
             if (!active)
                active = getimage (activename);
@@ -748,6 +756,9 @@ app_main ()
             addqr ();
             gfx_unlock ();
             xSemaphoreGive (mutex);
+            if (last)
+               revk_gpio_set (relay, 0);
+            last = 0;
          }
       } else if (last != now / UPDATERATE)
       {                         // Show idle
@@ -796,4 +807,12 @@ revk_web_extra (httpd_req_t * req)
    revk_web_setting_s (req, "Easter", "imageeast", imageeast, NULL, NULL, 0);
    revk_web_setting_s (req, "Halloween", "imagehall", imagehall, NULL, NULL, 0);
    revk_web_setting_s (req, "Xmas", "imagexmas", imagexmas, NULL, NULL, 0);
+   if (*mqtthost)
+   {
+      revk_web_setting_s (req, "MQTT Bell", "mqttbell", mqttbell, NULL, "Message when bell pushed normally", 0);
+      if (*tasbusy)
+         revk_web_setting_s (req, "MQTT Busy", "mqttbusy", mqttbusy, NULL, "Message when bell pushed and busy", 0);
+      if (*tasaway)
+         revk_web_setting_s (req, "MQTT Away", "mqttaway", mqttaway, NULL, "Message when bell pushed and away", 0);
+   }
 }

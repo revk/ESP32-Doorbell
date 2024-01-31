@@ -31,6 +31,9 @@ s	image.busy	Y:Busy
 s	image.away	R:Away
 s	postcode
 s	toot
+s	mqtt.bell			.live=1
+s	mqtt.busy			.live=1
+s	mqtt.away			.live=1
 s	tas.bell
 s	tas.busy
 s	tas.away
