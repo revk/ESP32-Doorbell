@@ -616,21 +616,6 @@ app_main ()
       if (b.wificonnect)
       {
          b.wificonnect = 0;
-         sleep (5);
-         xSemaphoreTake (mutex, portMAX_DELAY);
-         getimage (imageidle);  // Cache stuff
-         getimage (imagewait);
-         if (*tasbusy)
-            getimage (imagebusy);
-         if (*tasaway)
-            getimage (imageaway);
-         getimage (imagexmas);
-         getimage (imagemoon);
-         getimage (imagenew);
-         getimage (imageval);
-         getimage (imagehall);
-         getimage (imageeast);
-         xSemaphoreGive (mutex);
          if (startup)
          {
             wifi_ap_record_t ap = {
@@ -668,7 +653,22 @@ app_main ()
 #endif
             }
             override = up + startup;
-         }
+         } else
+            sleep (5);
+         xSemaphoreTake (mutex, portMAX_DELAY);
+         getimage (imageidle);  // Cache stuff
+         getimage (imagewait);
+         if (*tasbusy)
+            getimage (imagebusy);
+         if (*tasaway)
+            getimage (imageaway);
+         getimage (imagexmas);
+         getimage (imagemoon);
+         getimage (imagenew);
+         getimage (imageval);
+         getimage (imagehall);
+         getimage (imageeast);
+         xSemaphoreGive (mutex);
       }
       if (*overridemsg)
       {
