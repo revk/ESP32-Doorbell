@@ -616,6 +616,7 @@ app_main ()
       if (b.wificonnect)
       {
          b.wificonnect = 0;
+         sleep (5);
          xSemaphoreTake (mutex, portMAX_DELAY);
          getimage (imageidle);  // Cache stuff
          getimage (imagewait);
