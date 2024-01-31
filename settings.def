@@ -10,7 +10,7 @@ gpio	gfx.busy	35
 u8	gfx.flip	6
 bit	gfx.invert
 gpio	rgb		34
-gpio	relay		33
+gpio	relay
 u8	leds		24
 u8	holdtime	30
 u8	startup		10
