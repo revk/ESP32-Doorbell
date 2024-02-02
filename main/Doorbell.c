@@ -794,26 +794,26 @@ app_main ()
 void
 revk_web_extra (httpd_req_t * req)
 {
-   revk_web_setting_s (req, "Base URL", "imageurl", imageurl, NULL, "URL", 0);
-   revk_web_setting_s (req, "Idle", "imageidle", imageidle, NULL, "Name (with colour: prefix is needed)", 0);
-   revk_web_setting_s (req, "Wait", "imagewait", imagewait, NULL, NULL, 0);
+   revk_web_setting (req, "Base URL", "imageurl", NULL, "URL");
+   revk_web_setting (req, "Idle", "imageidle", NULL, "Name (with colour: prefix is needed)");
+   revk_web_setting (req, "Wait", "imagewait", NULL, NULL);
    if (*tasbusy)
-      revk_web_setting_s (req, "Busy", "imagebusy", imagebusy, NULL, NULL, 0);
+      revk_web_setting (req, "Busy", "imagebusy", NULL, NULL);
    if (*tasaway)
-      revk_web_setting_s (req, "Away", "imageaway", imageaway, NULL, NULL, 0);
-   revk_web_setting_s (req, "Full moon", "imagemoon", imagemoon, NULL, NULL, 0);
-   revk_web_setting_s (req, "New moon", "imagenew", imagenew, NULL, NULL, 0);
-   revk_web_setting_s (req, "New year", "imageyear", imageyear, NULL, NULL, 0);
-   revk_web_setting_s (req, "Valentine", "imageval", imageval, NULL, NULL, 0);
-   revk_web_setting_s (req, "Easter", "imageeast", imageeast, NULL, NULL, 0);
-   revk_web_setting_s (req, "Halloween", "imagehall", imagehall, NULL, NULL, 0);
-   revk_web_setting_s (req, "Xmas", "imagexmas", imagexmas, NULL, NULL, 0);
+      revk_web_setting (req, "Away", "imageaway", NULL, NULL);
+   revk_web_setting (req, "Full moon", "imagemoon", NULL, NULL);
+   revk_web_setting (req, "New moon", "imagenew", NULL, NULL);
+   revk_web_setting (req, "New year", "imageyear", NULL, NULL);
+   revk_web_setting (req, "Valentine", "imageval", NULL, NULL);
+   revk_web_setting (req, "Easter", "imageeast", NULL, NULL);
+   revk_web_setting (req, "Halloween", "imagehall", NULL, NULL);
+   revk_web_setting (req, "Xmas", "imagexmas", NULL, NULL);
    if (*mqtthost)
    {
-      revk_web_setting_s (req, "MQTT Bell", "mqttbell", mqttbell, NULL, "Message when bell pushed normally", 0);
+      revk_web_setting (req, "MQTT Bell", "mqttbell", NULL, "Message when bell pushed normally");
       if (*tasbusy)
-         revk_web_setting_s (req, "MQTT Busy", "mqttbusy", mqttbusy, NULL, "Message when bell pushed and busy", 0);
+         revk_web_setting (req, "MQTT Busy", "mqttbusy", NULL, "Message when bell pushed and busy");
       if (*tasaway)
-         revk_web_setting_s (req, "MQTT Away", "mqttaway", mqttaway, NULL, "Message when bell pushed and away", 0);
+         revk_web_setting (req, "MQTT Away", "mqttaway", NULL, "Message when bell pushed and away");
    }
 }

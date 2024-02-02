@@ -17,6 +17,15 @@ settings.h:     components/ESP32-RevK/revk_settings settings.def components/ESP3
 
 components/ESP32-RevK/revk_settings: components/ESP32-RevK/revk_settings.c
 	make -C components/ESP32-RevK
+beta:   
+	-git pull
+	-git submodule update --recursive
+	-git commit -a -m checkpoint
+	@make set
+	cp $(PROJECT_NAME)*.bin betarelease
+	cp $(PROJECT_NAME)*.bin release
+	git commit -a -m release
+	git push
 
 issue:
 	-git pull
