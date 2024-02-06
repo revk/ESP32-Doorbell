@@ -794,26 +794,26 @@ app_main ()
 void
 revk_web_extra (httpd_req_t * req)
 {
-   revk_web_setting (req, "Base URL", "imageurl", NULL, "URL");
-   revk_web_setting (req, "Idle", "imageidle", NULL, "Name (with colour: prefix is needed)");
-   revk_web_setting (req, "Wait", "imagewait", NULL, NULL);
+   revk_web_setting (req, "Base URL", "imageurl");
+   revk_web_setting (req, "Idle", "imageidle");
+   revk_web_setting (req, "Wait", "imagewait");
    if (*tasbusy)
-      revk_web_setting (req, "Busy", "imagebusy", NULL, NULL);
+      revk_web_setting (req, "Busy", "imagebusy");
    if (*tasaway)
-      revk_web_setting (req, "Away", "imageaway", NULL, NULL);
-   revk_web_setting (req, "Full moon", "imagemoon", NULL, NULL);
-   revk_web_setting (req, "New moon", "imagenew", NULL, NULL);
-   revk_web_setting (req, "New year", "imageyear", NULL, NULL);
-   revk_web_setting (req, "Valentine", "imageval", NULL, NULL);
-   revk_web_setting (req, "Easter", "imageeast", NULL, NULL);
-   revk_web_setting (req, "Halloween", "imagehall", NULL, NULL);
-   revk_web_setting (req, "Xmas", "imagexmas", NULL, NULL);
+      revk_web_setting (req, "Away", "imageaway");
+   revk_web_setting (req, "Full moon", "imagemoon");
+   revk_web_setting (req, "New moon", "imagenew");
+   revk_web_setting (req, "New year", "imageyear");
+   revk_web_setting (req, "Valentine", "imageval");
+   revk_web_setting (req, "Easter", "imageeast");
+   revk_web_setting (req, "Halloween", "imagehall");
+   revk_web_setting (req, "Xmas", "imagexmas");
    if (*mqtthost)
    {
-      revk_web_setting (req, "MQTT Bell", "mqttbell", NULL, "Message when bell pushed normally");
+      revk_web_setting (req, "MQTT Bell", "mqttbell");
       if (*tasbusy)
-         revk_web_setting (req, "MQTT Busy", "mqttbusy", NULL, "Message when bell pushed and busy");
+         revk_web_setting (req, "MQTT Busy", "mqttbusy");
       if (*tasaway)
-         revk_web_setting (req, "MQTT Away", "mqttaway", NULL, "Message when bell pushed and away");
+         revk_web_setting (req, "MQTT Away", "mqttaway");
    }
 }

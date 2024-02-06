@@ -1,5 +1,5 @@
-gpio	btn2		-42
-gpio	btn1		-41
+gpio	btn1		-41					// First button
+gpio	btn2		-42					// Second button (not used)
 gpio	gfx.ena
 gpio	gfx.mosi	40
 gpio	gfx.sck		39
@@ -10,30 +10,30 @@ gpio	gfx.busy	35
 u8	gfx.flip	6
 bit	gfx.invert
 gpio	rgb		34
-gpio	relay
-u8	leds		24
-u8	holdtime	30
-u8	startup		10
-u8	ledw1
-u8	ledw2
-u32	refresh		86400
-s	image.url
-s	image.idle	Example
-s	image.moon
-s	image.new
-s	image.val
-s	image.xmas
-s	image.east
-s	image.year
-s	image.hall
-s	image.wait	G:Wait
-s	image.busy	Y:Busy
-s	image.away	R:Away
-s	postcode
-s	toot
-s	mqtt.bell			.live=1
-s	mqtt.busy			.live=1
-s	mqtt.away			.live=1
-s	tas.bell
-s	tas.busy
-s	tas.away
+gpio	relay							// Relay output
+u8	leds		24					// Number of LEDs
+u8	holdtime	30					// Display hold time
+u8	startup		10					// Start up message time
+u8	ledw1							// Position of white idle LED (start)
+u8	ledw2							// Position of white idle LED (end)
+u32	refresh		86400					// Hard refresh (seconds)
+s	image.url						// Base URL for images
+s	image.idle	Example					// Idle image name (can prefix names with colour code and colon)
+s	image.moon						// Full moon image name
+s	image.new						// new moon image name
+s	image.val						// Valentine image name
+s	image.xmas						// Xmas image name
+s	image.east						// Easter image name
+s	image.year						// New Year image name
+s	image.hall						// Halloween image name
+s	image.wait	G:Wait					// Wait image name
+s	image.busy	Y:Busy					// Busy image name
+s	image.away	R:Away					// Away image name
+s	postcode						// Postcode (adds QR to images)
+s	toot							// MQTT topic to toot
+s	mqtt.bell			.live=1			// MQTT topic and payload for Bell normally
+s	mqtt.busy			.live=1			// MQTT topic and payload for Bell when busy
+s	mqtt.away			.live=1			// MQTT topic and payload for Bell when away
+s	tas.bell						// Tasmota name for switch to send for bell
+s	tas.busy						// Tasmota name for switch to monitor for busy
+s	tas.away						// Tasmota name for switch to monitor for away
