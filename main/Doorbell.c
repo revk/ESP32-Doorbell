@@ -54,11 +54,11 @@ const char *
 getidle (time_t t)
 {
    const char season = *revk_season (t);
-   if (*imagexmas && season == 'M')
+   if (*imagemoon && season == 'M')
       return imagemoon;
-   if (*imagexmas && season == 'N')
+   if (*imagenew && season == 'N')
       return imagenew;
-   if (*imagexmas && season == 'V')
+   if (*imageval && season == 'V')
       return imageval;
    if (*imagexmas && season == 'X')
       return imagexmas;
