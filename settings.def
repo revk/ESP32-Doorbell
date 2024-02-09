@@ -1,15 +1,15 @@
 gpio	btn1		-41					// First button
 gpio	btn2		-42					// Second button (not used)
-gpio	gfx.ena
-gpio	gfx.mosi	40
-gpio	gfx.sck		39
-gpio	gfx.cs		38
-gpio	gfx.dc		37
-gpio	gfx.rst		36
-gpio	gfx.busy	35
-u8	gfx.flip	6
-bit	gfx.invert
-gpio	rgb		34
+gpio	gfx.ena							// E-Paper GPIO ENA
+gpio	gfx.mosi	40					// E-Paper GPIO MOSI
+gpio	gfx.sck		39					// E-Paper GPIO SCK
+gpio	gfx.cs		38					// E-Paper GPIO CS
+gpio	gfx.dc		37					// E-Paper GPIO DC
+gpio	gfx.rst		36					// E-Paper GPIO RST
+gpio	gfx.busy	35					// E-Paper GPIO BUSY
+u8	gfx.flip	6					// E-Paper display flip
+bit	gfx.invert						// E-Paper invert
+gpio	rgb		34					// GPIO RGB LED chain
 gpio	relay							// Relay output
 u8	leds		24					// Number of LEDs
 u8	holdtime	30					// Display hold time
