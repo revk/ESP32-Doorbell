@@ -24,7 +24,7 @@ beta:
 	-git commit -a -m checkpoint
 	@make set
 	cp $(PROJECT_NAME)*.bin betarelease
-	git commit -a -m beta
+	git commit -a -m betarelease
 	git push
 
 issue:
@@ -34,7 +34,7 @@ issue:
 	@make set
 	cp $(PROJECT_NAME)*.bin betarelease
 	cp $(PROJECT_NAME)*.bin release
-	git commit -a -m release
+	git commit -a -m betarelease release
 	git push
 
 set:    epd75r epd75k
