@@ -216,6 +216,16 @@ web_icon (httpd_req_t * req)
 }
 
 static esp_err_t
+web_text (httpd_req_t * req, const char *msg)
+{
+   httpd_resp_set_type (req, "text/plain;charset=utf-8");
+   if (msg)
+      revk_web_send (req, "%s", msg);
+   httpd_resp_sendstr_chunk (req, NULL);
+   return ESP_OK;
+}
+
+static esp_err_t
 web_root (httpd_req_t * req)
 {
    if (revk_link_down ())
@@ -267,9 +277,11 @@ web_push (httpd_req_t * req)
    size_t l = httpd_req_get_url_query_len (req);
    char query[200];
    if (!*overridename && l > 0 && l < sizeof (query) && !httpd_req_get_url_query_str (req, query, sizeof (query)))
+   {
       strncpy (overridename, query, sizeof (overridename));
-   else
-      pushed = uptime () + holdtime;
+      return web_text (req, NULL);
+   }
+   pushed = uptime () + holdtime;
    return web_root (req);
 }
 
@@ -285,7 +297,7 @@ web_active (httpd_req_t * req)
          q++;
       setactive (q);
    }
-   return web_root (req);
+   return web_text (req, NULL);
 }
 
 static esp_err_t
@@ -300,7 +312,7 @@ web_message (httpd_req_t * req)
          q++;
       strncpy ((char *) overridemsg, q, sizeof (overridemsg));
    }
-   return web_root (req);
+   return web_text (req, NULL);
 }
 
 static void
