@@ -690,7 +690,9 @@ app_main ()
       if (*overridename)
       {                         // Special override
          ESP_LOGE (TAG, "Override: %s", overridename);
-         image_t *i = getimage (overridename);
+         char *t = strdup (overridename);
+         *overridename = 0;
+         image_t *i = getimage (t);
          if (i)
          {
             xSemaphoreTake (mutex, portMAX_DELAY);
@@ -700,13 +702,13 @@ app_main ()
             for (int n = 0; n < 3; n++)
             {
                gfx_lock ();
-               image_load (overridename, i, 'B');
+               image_load (t, i, 'B');
                addqr ();
                gfx_unlock ();
             }
             xSemaphoreGive (mutex);
          }
-         *overridename = 0;
+         free (t);
       }
       if (override)
       {
@@ -816,4 +818,5 @@ revk_web_extra (httpd_req_t * req)
       if (*tasaway)
          revk_web_setting (req, "MQTT Away", "mqttaway");
    }
+   revk_web_setting (req, "Image invert", "gfxinvert");
 }
