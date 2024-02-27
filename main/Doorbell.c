@@ -704,8 +704,8 @@ app_main ()
             revk_error ("SD", &j);
             card = NULL;
          }
+         // TODO SD LED
       }
-      // TODO SD LED
    }
 
    gfx_lock ();
