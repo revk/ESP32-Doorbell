@@ -19,6 +19,8 @@ static const char TAG[] = "Doorbell";
 
 #define	UPDATERATE	60
 
+const char sd_mount[] = "/sd";
+
 httpd_handle_t webserver = NULL;
 sdmmc_card_t *card = NULL;
 uint32_t pushed = 0;
@@ -102,32 +104,35 @@ getimage (const char *name)
       .url = url,
       .crt_bundle_attach = esp_crt_bundle_attach,
    };
-   int response = 0;
-   esp_http_client_handle_t client = esp_http_client_init (&config);
-   if (client)
+   int response = -1;
+   if (*imageurl)
    {
-      if (i && i->loaded)
+      esp_http_client_handle_t client = esp_http_client_init (&config);
+      if (client)
       {
-         char when[50];
-         struct tm t;
-         gmtime_r (&i->loaded, &t);
-         strftime (when, sizeof (when), "%a, %d %b %Y %T GMT", &t);
-         esp_http_client_set_header (client, "If-Modified-Since", when);
-      }
-      if (!esp_http_client_open (client, 0))
-      {
-         if (esp_http_client_fetch_headers (client) == size)
+         if (i && i->loaded)
          {
-            buf = mallocspi (size);
-            if (buf)
-               len = esp_http_client_read_response (client, (char *) buf, size);
+            char when[50];
+            struct tm t;
+            gmtime_r (&i->loaded, &t);
+            strftime (when, sizeof (when), "%a, %d %b %Y %T GMT", &t);
+            esp_http_client_set_header (client, "If-Modified-Since", when);
          }
-         if (!buf)
-            esp_http_client_flush_response (client, &len);
-         response = esp_http_client_get_status_code (client);
-         esp_http_client_close (client);
+         if (!esp_http_client_open (client, 0))
+         {
+            if (esp_http_client_fetch_headers (client) == size)
+            {
+               buf = mallocspi (size);
+               if (buf)
+                  len = esp_http_client_read_response (client, (char *) buf, size);
+            }
+            if (!buf)
+               esp_http_client_flush_response (client, &len);
+            response = esp_http_client_get_status_code (client);
+            esp_http_client_close (client);
+         }
+         esp_http_client_cleanup (client);
       }
-      esp_http_client_cleanup (client);
    }
    if (response == 200 && len == size)
    {                            // Got new image
@@ -149,6 +154,25 @@ getimage (const char *name)
       }
       if (i)
       {
+         if (card && (!i->data || memcmp (i->data, buf, size)))
+         {                      // Save, as changed or new
+            char *fn = NULL;
+            asprintf (&fn, "%s/%s.mono", sd_mount, name);
+            if (fn)
+            {
+               FILE *f = fopen (fn, "w");
+               if (f)
+               {
+                  jo_t j = jo_object_alloc ();
+                  if (fwrite (buf, size, 1, f) != 1)
+                     jo_string (j, "error", "write failed");
+                  fclose (f);
+                  jo_string (j, "write", fn);
+                  revk_info ("SD", &j);
+               }
+               free (fn);
+            }
+         }
          free (i->data);
          i->data = buf;
          buf = NULL;
@@ -167,6 +191,40 @@ getimage (const char *name)
       if (response)
          jo_int (j, "response", response);
       revk_error ("image", &j);
+      if (card)
+      {
+         char *fn = NULL;
+         asprintf (&fn, "%s/%s.mono", sd_mount, name);
+         if (fn)
+         {
+            FILE *f = fopen (fn, "r");
+            if (f)
+            {
+               if (!buf)
+                  buf = mallocspi (size);
+               if (buf)
+               {
+                  if (fread (buf, size, 1, f) == 1)
+                  {
+                     if (i->data && !memcmp (buf, i->data, size))
+                        response = 0;   // No change
+                     else
+                     {
+                        jo_t j = jo_object_alloc ();
+                        jo_string (j, "read", fn);
+                        revk_info ("SD", &j);
+                        response = 200; // Treat as received
+                        free (i->data);
+                        i->data = buf;
+                        buf = NULL;
+                     }
+                  }
+               }
+               fclose (f);
+            }
+            free (fn);
+         }
+      }
    }
    free (buf);
    free (url);
