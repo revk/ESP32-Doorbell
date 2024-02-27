@@ -306,6 +306,8 @@ web_root (httpd_req_t * req)
       return revk_web_settings (req);   // Direct to web set up
    web_head (req, *hostname ? hostname : appname);
    revk_web_send (req, "<p><a href=/push>Ding!</a></p>");
+   if (card)
+      revk_web_send (req, "<p>SD card mounted</p>");
    if (*imageurl)
    {
       time_t now = time (0);
