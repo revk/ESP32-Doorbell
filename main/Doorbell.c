@@ -89,7 +89,7 @@ image_t *
 getimage (const char *name)
 {
    name = skipcolour (name);
-   if (!*imageurl || !name || !*name)
+   if (!name || !*name)
       return NULL;
    char *url = NULL;
    asprintf (&url, "%s/%s.mono", imageurl, name);
