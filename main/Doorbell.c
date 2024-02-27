@@ -180,17 +180,20 @@ getimage (const char *name)
       }
    } else if (response != 304)
    {
-      jo_t j = jo_object_alloc ();
-      jo_string (j, "name", name);
-      jo_string (j, "url", url);
-      if (len)
+      if (*imageurl)
       {
-         jo_int (j, "len", len);
-         jo_int (j, "expect", size);
+         jo_t j = jo_object_alloc ();
+         jo_string (j, "name", name);
+         jo_string (j, "url", url);
+         if (len)
+         {
+            jo_int (j, "len", len);
+            jo_int (j, "expect", size);
+         }
+         if (response)
+            jo_int (j, "response", response);
+         revk_error ("image", &j);
       }
-      if (response)
-         jo_int (j, "response", response);
-      revk_error ("image", &j);
       if (card)
       {
          char *fn = NULL;
@@ -206,17 +209,28 @@ getimage (const char *name)
                {
                   if (fread (buf, size, 1, f) == 1)
                   {
-                     if (i->data && !memcmp (buf, i->data, size))
-                        response = 0;   // No change
-                     else
+                     if (!i && (i = mallocspi (sizeof (*i))))
                      {
-                        jo_t j = jo_object_alloc ();
-                        jo_string (j, "read", fn);
-                        revk_info ("SD", &j);
-                        response = 200; // Treat as received
-                        free (i->data);
-                        i->data = buf;
-                        buf = NULL;
+                        memset (i, 0, sizeof (*i));
+                        i->url = url;
+                        url = NULL;
+                        i->next = cache;
+                        cache = i;
+                     }
+                     if (i)
+                     {
+                        if (i->data && !memcmp (buf, i->data, size))
+                           response = 0;        // No change
+                        else
+                        {
+                           jo_t j = jo_object_alloc ();
+                           jo_string (j, "read", fn);
+                           revk_info ("SD", &j);
+                           response = 200;      // Treat as received
+                           free (i->data);
+                           i->data = buf;
+                           buf = NULL;
+                        }
                      }
                   }
                }
