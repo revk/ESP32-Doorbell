@@ -17,6 +17,7 @@ u8	startup		10					// Start up message time
 u8	ledw1							// Position of white idle LED (start)
 u8	ledw2							// Position of white idle LED (end)
 u32	refresh		86400					// Hard refresh (seconds)
+
 s	image.url						// Base URL for images
 s	image.idle	Example					// Idle image name (can prefix names with colour code and colon)
 s	image.moon						// Full moon image name
@@ -29,11 +30,20 @@ s	image.hall						// Halloween image name
 s	image.wait	G:Wait					// Wait image name
 s	image.busy	Y:Busy					// Busy image name
 s	image.away	R:Away					// Away image name
+
 s	postcode						// Postcode (adds QR to images)
 s	toot							// MQTT topic to toot
+
 s	mqtt.bell			.live=1			// MQTT topic and payload for Bell normally
 s	mqtt.busy			.live=1			// MQTT topic and payload for Bell when busy
 s	mqtt.away			.live=1			// MQTT topic and payload for Bell when away
+
 s	tas.bell						// Tasmota name for switch to send for bell
 s	tas.busy						// Tasmota name for switch to monitor for busy
 s	tas.away						// Tasmota name for switch to monitor for away
+
+gpio	sd.ss		3					// MicroSD SS
+gpio	sd.mosi		4					// MicroSD MOSI
+gpio	sd.sck		5					// MicroSD SCK
+gpio	sd.miso		6					// MicroSD MISO
+gpio	sd.cd		-7					// MicroSD CD

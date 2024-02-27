@@ -11,6 +11,7 @@ static const char TAG[] = "Doorbell";
 #include "esp_http_client.h"
 #include "esp_http_server.h"
 #include "esp_crt_bundle.h"
+#include "esp_vfs_fat.h"
 #include "gfx.h"
 #include "iec18004.h"
 #include <hal/spi_types.h>
@@ -19,6 +20,7 @@ static const char TAG[] = "Doorbell";
 #define	UPDATERATE	60
 
 httpd_handle_t webserver = NULL;
+sdmmc_card_t *card = NULL;
 uint32_t pushed = 0;
 uint32_t override = 0;
 uint32_t last = -1;
@@ -583,6 +585,53 @@ app_main ()
          jo_string (j, "description", e);
          revk_error ("gfx", &j);
       }
+   }
+   if (sdmosi.set)
+   {
+      revk_gpio_input (sdcd);
+      sdmmc_host_t host = SDSPI_HOST_DEFAULT ();
+      host.max_freq_khz = SDMMC_FREQ_PROBING;
+      spi_bus_config_t bus_cfg = {
+         .mosi_io_num = sdmosi.num,
+         .miso_io_num = sdmiso.num,
+         .sclk_io_num = sdsck.num,
+         .quadwp_io_num = -1,
+         .quadhd_io_num = -1,
+         .max_transfer_sz = 4000,
+      };
+      esp_err_t ret = spi_bus_initialize (host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
+      if (ret != ESP_OK)
+      {
+         jo_t j = jo_object_alloc ();
+         jo_string (j, "error", "SPI failed");
+         jo_int (j, "code", ret);
+         jo_int (j, "MOSI", sdmosi.num);
+         jo_int (j, "MISO", sdmiso.num);
+         jo_int (j, "CLK", sdsck.num);
+         revk_error ("SD", &j);
+         vTaskDelete (NULL);
+         return;
+      }
+      esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+         .format_if_mount_failed = 1,
+         .max_files = 2,
+         .allocation_unit_size = 16 * 1024,
+         .disk_status_check_enable = 1,
+      };
+      sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT ();
+      slot_config.gpio_cs = sdss.num;
+      slot_config.host_id = host.slot;
+      ret = esp_vfs_fat_sdspi_mount (sd_mount, &host, &slot_config, &mount_config, &card);
+      if (ret)
+      {
+         ESP_LOGE (TAG, "SD %d", ret);
+         jo_t j = jo_object_alloc ();
+         jo_string (j, "error", "Failed to mount");
+         jo_int (j, "code", ret);
+         revk_error ("SD", &j);
+         card = NULL;
+      }
+      // TODO SD LED
    }
 
    gfx_lock ();
