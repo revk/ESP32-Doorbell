@@ -105,7 +105,7 @@ getimage (const char *name)
       .crt_bundle_attach = esp_crt_bundle_attach,
    };
    int response = -1;
-   if (*imageurl)
+   if (*imageurl && !revk_link_down ())
    {
       esp_http_client_handle_t client = esp_http_client_init (&config);
       if (client)
