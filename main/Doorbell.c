@@ -612,7 +612,7 @@ app_main ()
    revk_boot (&app_callback);
    revk_start ();
 
-   revk_gpio_output (relay);
+   revk_gpio_output (relay, 0);
 
    revk_task ("push", push_task, NULL, 4);
 
