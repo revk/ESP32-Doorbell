@@ -639,6 +639,7 @@ app_main ()
    }
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.lru_pruge_enable = true;
    config.max_uri_handlers = 5 + revk_num_web_handlers ();
    if (!httpd_start (&webserver, &config))
    {
