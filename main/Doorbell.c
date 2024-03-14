@@ -788,7 +788,6 @@ app_main ()
             override = up + startup;
          } else
             sleep (5);
-#if 0                           // Too slow with SD card
          getimage (imageidle);  // Cache stuff
          getimage (imagewait);
          if (*tasbusy)
@@ -801,7 +800,6 @@ app_main ()
          getimage (imageval);
          getimage (imagehall);
          getimage (imageeast);
-#endif
       }
       if (*overridemsg)
       {
