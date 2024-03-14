@@ -9,7 +9,7 @@ gpio	gfx.rst		36					// E-Paper RST
 gpio	gfx.busy	35					// E-Paper BUSY
 u8	gfx.flip	6					// E-Paper display flip
 bit	gfx.invert						// E-Paper invert
-gpio	rgb		34					// RGB LED chain
+gpio	rgb		2					// RGB LED chain
 gpio	relay							// Relay output
 u8	leds		24					// Number of LEDs
 u8	holdtime	30					// Display hold time
