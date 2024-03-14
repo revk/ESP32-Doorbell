@@ -38,6 +38,7 @@ struct
    uint8_t wificonnect:1;
    uint8_t tasawaystate:1;
    uint8_t tasbusystate:1;
+   uint8_t getimages:1;
 } volatile b;
 
 typedef struct image_s image_t;
@@ -700,7 +701,7 @@ app_main ()
          sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT ();
          //slot_config.gpio_cs = sdss.num;
          slot_config.gpio_cs = -1;
-	 revk_gpio_output(sdss,0); // Bodge for faster access when one SD card and ESP IDF V5+
+         revk_gpio_output (sdss, 0);    // Bodge for faster access when one SD card and ESP IDF V5+
          slot_config.gpio_cd = sdcd.num;
          slot_config.host_id = host.slot;
          ret = esp_vfs_fat_sdspi_mount (sd_mount, &host, &slot_config, &mount_config, &card);
@@ -791,18 +792,7 @@ app_main ()
             override = up + startup;
          } else
             sleep (5);
-         getimage (imageidle);  // Cache stuff
-         getimage (imagewait);
-         if (*tasbusy)
-            getimage (imagebusy);
-         if (*tasaway)
-            getimage (imageaway);
-         getimage (imagexmas);
-         getimage (imagemoon);
-         getimage (imagenew);
-         getimage (imageval);
-         getimage (imagehall);
-         getimage (imageeast);
+         b.getimages = 1;
       }
       if (*overridemsg)
       {
@@ -847,6 +837,22 @@ app_main ()
          hour = t.tm_hour;
          idle = getimage (basename);
          active = getimage (activename);
+      }
+      if (b.getimages)
+      {
+         b.getimages = 0;
+         getimage (imageidle);  // Cache stuff
+         getimage (imagewait);
+         if (*tasbusy)
+            getimage (imagebusy);
+         if (*tasaway)
+            getimage (imageaway);
+         getimage (imagexmas);
+         getimage (imagemoon);
+         getimage (imagenew);
+         getimage (imageval);
+         getimage (imagehall);
+         getimage (imageeast);
       }
       if (override)
          continue;
