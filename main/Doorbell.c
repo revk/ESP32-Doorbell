@@ -698,6 +698,7 @@ app_main ()
             .disk_status_check_enable = 1,
          };
          sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT ();
+         slot_config.gpio_cd = sdcd.num;
          slot_config.gpio_cs = sdss.num;
          slot_config.host_id = host.slot;
          ret = esp_vfs_fat_sdspi_mount (sd_mount, &host, &slot_config, &mount_config, &card);
