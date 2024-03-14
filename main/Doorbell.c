@@ -670,7 +670,7 @@ app_main ()
    {
       revk_gpio_input (sdcd);
       sdmmc_host_t host = SDSPI_HOST_DEFAULT ();
-      host.max_freq_khz = SDMMC_FREQ_PROBING;
+      host.max_freq_khz = SDMMC_FREQ_DEFAULT;//SDMMC_FREQ_PROBING;
       spi_bus_config_t bus_cfg = {
          .mosi_io_num = sdmosi.num,
          .miso_io_num = sdmiso.num,
