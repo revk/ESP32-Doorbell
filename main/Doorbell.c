@@ -105,6 +105,56 @@ getimage (const char *name)
       .crt_bundle_attach = esp_crt_bundle_attach,
    };
    int response = -1;
+   void readcard (void)
+   {
+      if (card)
+      {
+         char *fn = NULL;
+         asprintf (&fn, "%s/%s.mono", sd_mount, name);
+         if (fn)
+         {
+            FILE *f = fopen (fn, "r");
+            if (f)
+            {
+               if (!buf)
+                  buf = mallocspi (size);
+               if (buf)
+               {
+                  if (fread (buf, size, 1, f) == 1)
+                  {
+                     if (!i && (i = mallocspi (sizeof (*i))))
+                     {
+                        memset (i, 0, sizeof (*i));
+                        i->url = url;
+                        url = NULL;
+                        i->next = cache;
+                        cache = i;
+                     }
+                     if (i)
+                     {
+                        if (i->data && !memcmp (buf, i->data, size))
+                           response = 0;        // No change
+                        else
+                        {
+                           jo_t j = jo_object_alloc ();
+                           jo_string (j, "read", fn);
+                           revk_info ("SD", &j);
+                           response = 200;      // Treat as received
+                           free (i->data);
+                           i->data = buf;
+                           buf = NULL;
+                        }
+                     }
+                  }
+               }
+               fclose (f);
+            }
+            free (fn);
+         }
+      }
+   }
+   if (!i)
+      readcard ();
    if (*imageurl && !revk_link_down ())
    {
       esp_http_client_handle_t client = esp_http_client_init (&config);
@@ -194,51 +244,7 @@ getimage (const char *name)
             jo_int (j, "response", response);
          revk_error ("image", &j);
       }
-      if (card)
-      {
-         char *fn = NULL;
-         asprintf (&fn, "%s/%s.mono", sd_mount, name);
-         if (fn)
-         {
-            FILE *f = fopen (fn, "r");
-            if (f)
-            {
-               if (!buf)
-                  buf = mallocspi (size);
-               if (buf)
-               {
-                  if (fread (buf, size, 1, f) == 1)
-                  {
-                     if (!i && (i = mallocspi (sizeof (*i))))
-                     {
-                        memset (i, 0, sizeof (*i));
-                        i->url = url;
-                        url = NULL;
-                        i->next = cache;
-                        cache = i;
-                     }
-                     if (i)
-                     {
-                        if (i->data && !memcmp (buf, i->data, size))
-                           response = 0;        // No change
-                        else
-                        {
-                           jo_t j = jo_object_alloc ();
-                           jo_string (j, "read", fn);
-                           revk_info ("SD", &j);
-                           response = 200;      // Treat as received
-                           free (i->data);
-                           i->data = buf;
-                           buf = NULL;
-                        }
-                     }
-                  }
-               }
-               fclose (f);
-            }
-            free (fn);
-         }
-      }
+      readcard ();
    }
    free (buf);
    free (url);
@@ -791,6 +797,7 @@ app_main ()
             override = up + startup;
          } else
             sleep (5);
+#if 0 // Too slow with SD card
          xSemaphoreTake (mutex, portMAX_DELAY);
          getimage (imageidle);  // Cache stuff
          getimage (imagewait);
@@ -805,6 +812,7 @@ app_main ()
          getimage (imagehall);
          getimage (imageeast);
          xSemaphoreGive (mutex);
+#endif
       }
       if (*overridemsg)
       {
