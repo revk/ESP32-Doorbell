@@ -112,6 +112,7 @@ getimage (const char *name)
          asprintf (&fn, "%s/%s.mono", sd_mount, name);
          if (fn)
          {
+            uint32_t start = uptime ();
             FILE *f = fopen (fn, "r");
             if (f)
             {
@@ -137,6 +138,7 @@ getimage (const char *name)
                         {
                            jo_t j = jo_object_alloc ();
                            jo_string (j, "read", fn);
+                           jo_int (j, "time", uptime () - start);
                            revk_info ("SD", &j);
                            response = 200;      // Treat as received
                            free (i->data);
@@ -209,12 +211,14 @@ getimage (const char *name)
             asprintf (&fn, "%s/%s.mono", sd_mount, name);
             if (fn)
             {
+               uint32_t start = uptime ();
                FILE *f = fopen (fn, "w");
                if (f)
                {
                   jo_t j = jo_object_alloc ();
                   if (fwrite (buf, size, 1, f) != 1)
                      jo_string (j, "error", "write failed");
+                  jo_int (j, "time", uptime () - start);
                   fclose (f);
                   jo_string (j, "write", fn);
                   revk_info ("SD", &j);
