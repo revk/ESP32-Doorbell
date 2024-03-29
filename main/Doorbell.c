@@ -28,7 +28,6 @@ uint32_t override = 0;
 uint32_t last = -1;
 char activename[30] = "";
 char overridename[30] = "";
-SemaphoreHandle_t mutex = NULL;
 led_strip_handle_t strip = NULL;
 volatile char led_colour = 0;
 volatile char overridemsg[1000] = "";
@@ -39,6 +38,7 @@ struct
    uint8_t wificonnect:1;
    uint8_t tasawaystate:1;
    uint8_t tasbusystate:1;
+   uint8_t getimages:1;
 } volatile b;
 
 typedef struct image_s image_t;
@@ -105,6 +105,58 @@ getimage (const char *name)
       .crt_bundle_attach = esp_crt_bundle_attach,
    };
    int response = -1;
+   void readcard (void)
+   {
+      if (card)
+      {
+         char *fn = NULL;
+         asprintf (&fn, "%s/%s.mono", sd_mount, name);
+         if (fn)
+         {
+            uint32_t start = uptime ();
+            FILE *f = fopen (fn, "r");
+            if (f)
+            {
+               if (!buf)
+                  buf = mallocspi (size);
+               if (buf)
+               {
+                  if (fread (buf, size, 1, f) == 1)
+                  {
+                     if (!i && (i = mallocspi (sizeof (*i))))
+                     {
+                        memset (i, 0, sizeof (*i));
+                        i->url = url;
+                        url = NULL;
+                        i->next = cache;
+                        cache = i;
+                     }
+                     if (i)
+                     {
+                        if (i->data && !memcmp (buf, i->data, size))
+                           response = 0;        // No change
+                        else
+                        {
+                           jo_t j = jo_object_alloc ();
+                           jo_string (j, "read", fn);
+                           jo_int (j, "time", uptime () - start);
+                           revk_info ("SD", &j);
+                           response = 200;      // Treat as received
+                           free (i->data);
+                           i->data = buf;
+                           buf = NULL;
+                        }
+                     }
+                  }
+               }
+               fclose (f);
+            }
+            free (fn);
+         }
+      }
+   }
+   if (!i)
+      readcard ();
    if (*imageurl && !revk_link_down ())
    {
       esp_http_client_handle_t client = esp_http_client_init (&config);
@@ -160,12 +212,14 @@ getimage (const char *name)
             asprintf (&fn, "%s/%s.mono", sd_mount, name);
             if (fn)
             {
+               uint32_t start = uptime ();
                FILE *f = fopen (fn, "w");
                if (f)
                {
                   jo_t j = jo_object_alloc ();
                   if (fwrite (buf, size, 1, f) != 1)
                      jo_string (j, "error", "write failed");
+                  jo_int (j, "time", uptime () - start);
                   fclose (f);
                   jo_string (j, "write", fn);
                   revk_info ("SD", &j);
@@ -194,51 +248,7 @@ getimage (const char *name)
             jo_int (j, "response", response);
          revk_error ("image", &j);
       }
-      if (card)
-      {
-         char *fn = NULL;
-         asprintf (&fn, "%s/%s.mono", sd_mount, name);
-         if (fn)
-         {
-            FILE *f = fopen (fn, "r");
-            if (f)
-            {
-               if (!buf)
-                  buf = mallocspi (size);
-               if (buf)
-               {
-                  if (fread (buf, size, 1, f) == 1)
-                  {
-                     if (!i && (i = mallocspi (sizeof (*i))))
-                     {
-                        memset (i, 0, sizeof (*i));
-                        i->url = url;
-                        url = NULL;
-                        i->next = cache;
-                        cache = i;
-                     }
-                     if (i)
-                     {
-                        if (i->data && !memcmp (buf, i->data, size))
-                           response = 0;        // No change
-                        else
-                        {
-                           jo_t j = jo_object_alloc ();
-                           jo_string (j, "read", fn);
-                           revk_info ("SD", &j);
-                           response = 200;      // Treat as received
-                           free (i->data);
-                           i->data = buf;
-                           buf = NULL;
-                        }
-                     }
-                  }
-               }
-               fclose (f);
-            }
-            free (fn);
-         }
-      }
+      readcard ();
    }
    free (buf);
    free (url);
@@ -260,14 +270,12 @@ setactive (char *value)
 {
    if (!value || !strcmp (activename, value))
       return;
-   xSemaphoreTake (mutex, portMAX_DELAY);
    strncpy (activename, value, sizeof (activename));
    active = NULL;
    if (!last)
       last = -1;                // Redisplay
    if (pushed)
       pushed = uptime () + holdtime;
-   xSemaphoreGive (mutex);
 }
 
 static void
@@ -607,8 +615,6 @@ led_task (void *arg)
 void
 app_main ()
 {
-   mutex = xSemaphoreCreateBinary ();
-   xSemaphoreGive (mutex);
    revk_boot (&app_callback);
    revk_start ();
 
@@ -693,7 +699,10 @@ app_main ()
             .disk_status_check_enable = 1,
          };
          sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT ();
-         slot_config.gpio_cs = sdss.num;
+         //slot_config.gpio_cs = sdss.num;
+         slot_config.gpio_cs = -1;
+         revk_gpio_output (sdss, 0);    // Bodge for faster access when one SD card and ESP IDF V5+
+         slot_config.gpio_cd = sdcd.num;
          slot_config.host_id = host.slot;
          ret = esp_vfs_fat_sdspi_mount (sd_mount, &host, &slot_config, &mount_config, &card);
          if (ret)
@@ -733,14 +742,6 @@ app_main ()
          }
       }
       const char *basename = getidle (now);
-      if (!revk_link_down () && hour != t.tm_hour)
-      {                         // Get files
-         hour = t.tm_hour;
-         xSemaphoreTake (mutex, portMAX_DELAY);
-         idle = getimage (basename);
-         active = getimage (activename);
-         xSemaphoreGive (mutex);
-      }
       if (b.mqttinit)
       {
          ESP_LOGE (TAG, "MQTT Connected");
@@ -791,7 +792,55 @@ app_main ()
             override = up + startup;
          } else
             sleep (5);
-         xSemaphoreTake (mutex, portMAX_DELAY);
+         b.getimages = 1;
+      }
+      if (*overridemsg)
+      {
+         ESP_LOGE (TAG, "Override: %s", overridemsg);
+         if (override < up)
+            override = up + holdtime;
+         last = 0;
+         for (int n = 0; n < 3; n++)
+         {
+            gfx_lock ();
+            gfx_message ((char *) overridemsg);
+            *overridemsg = 0;
+            addqr ();
+            gfx_unlock ();
+         }
+      }
+      if (*overridename)
+      {                         // Special override
+         ESP_LOGE (TAG, "Override: %s", overridename);
+         char *t = strdup (overridename);
+         *overridename = 0;
+         image_t *i = getimage (t);
+         if (i)
+         {
+            if (override < up)
+               override = up + holdtime;
+            last = 0;
+            for (int n = 0; n < 3; n++)
+            {
+               gfx_lock ();
+               image_load (t, i, 'B');
+               addqr ();
+               gfx_unlock ();
+            }
+         }
+         free (t);
+      }
+      if (override && override < up)
+         override = 0;
+      if (!revk_link_down () && hour != t.tm_hour)
+      {                         // Check new files
+         hour = t.tm_hour;
+         idle = getimage (basename);
+         active = getimage (activename);
+      }
+      if (b.getimages)
+      {
+         b.getimages = 0;
          getimage (imageidle);  // Cache stuff
          getimage (imagewait);
          if (*tasbusy)
@@ -804,55 +853,9 @@ app_main ()
          getimage (imageval);
          getimage (imagehall);
          getimage (imageeast);
-         xSemaphoreGive (mutex);
-      }
-      if (*overridemsg)
-      {
-         ESP_LOGE (TAG, "Override: %s", overridemsg);
-         xSemaphoreTake (mutex, portMAX_DELAY);
-         if (override < up)
-            override = up + holdtime;
-         last = 0;
-         for (int n = 0; n < 3; n++)
-         {
-            gfx_lock ();
-            gfx_message ((char *) overridemsg);
-            *overridemsg = 0;
-            addqr ();
-            gfx_unlock ();
-         }
-         xSemaphoreGive (mutex);
-      }
-      if (*overridename)
-      {                         // Special override
-         ESP_LOGE (TAG, "Override: %s", overridename);
-         char *t = strdup (overridename);
-         *overridename = 0;
-         image_t *i = getimage (t);
-         if (i)
-         {
-            xSemaphoreTake (mutex, portMAX_DELAY);
-            if (override < up)
-               override = up + holdtime;
-            last = 0;
-            for (int n = 0; n < 3; n++)
-            {
-               gfx_lock ();
-               image_load (t, i, 'B');
-               addqr ();
-               gfx_unlock ();
-            }
-            xSemaphoreGive (mutex);
-         }
-         free (t);
       }
       if (override)
-      {
-         if (override < up)
-            override = 0;
-         else
-            continue;
-      }
+         continue;
       if (pushed < up)
          pushed = 0;            // Time out
       if (pushed)
@@ -883,7 +886,6 @@ app_main ()
                revk_mqtt_send_raw ("toot", 0, pl, 1);
                free (pl);
             }
-            xSemaphoreTake (mutex, portMAX_DELAY);
             if (!active)
                active = getimage (activename);
             gfx_lock ();
@@ -894,14 +896,12 @@ app_main ()
                image_load (activename, active, 'B');
             addqr ();
             gfx_unlock ();
-            xSemaphoreGive (mutex);
             if (last)
                revk_gpio_set (relay, 0);
             last = 0;
          }
       } else if (last != now / UPDATERATE)
       {                         // Show idle
-         xSemaphoreTake (mutex, portMAX_DELAY);
          if (!idle)
             idle = getimage (basename);
          gfx_lock ();
@@ -924,7 +924,6 @@ app_main ()
          gfx_7seg (2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
 #endif
          gfx_unlock ();
-         xSemaphoreGive (mutex);
       }
    }
 }
