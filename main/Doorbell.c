@@ -58,7 +58,6 @@ const char *
 getidle (time_t t)
 {
    const char *season = revk_season (t);
-   ESP_LOGE (TAG, "Season [%s]", season);
    if (*imagemoon && *season == 'M')
       return imagemoon;
    if (*imagenew && *season == 'N')
