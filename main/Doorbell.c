@@ -270,15 +270,19 @@ image_load (const char *name, image_t * i, char c)
       gfx_refresh ();
       name++;
    }
-   const char *colours = name;
-   while (*colours && isalpha ((int) (unsigned char) *colours))
-      colours++;
    int n = 0;
-   if (*colours == ':')
-   {                            // Colours
-      colours = name;
-      while (isalpha ((int)(unsigned char)*colours) && n < sizeof (led_colour))
-         led_colour[n++] = *colours++;
+   if (name)
+   {
+      const char *colours = name;
+      while (*colours && isalpha ((int) (unsigned char) *colours))
+         colours++;
+      if (*colours == ':')
+      {                         // Colours
+         colours = name;
+         while (isalpha ((int) (unsigned char) *colours) && n < sizeof (led_colour))
+            led_colour[n++] = *colours++;
+      } else
+         led_colour[n++] = c;   // Single from arg
    } else
       led_colour[n++] = c;      // Single from arg
    while (n < sizeof (led_colour))
