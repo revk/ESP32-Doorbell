@@ -44,6 +44,8 @@ The rear LEDs show a colour related to an image - this is by default black (off)
 
 However, if the image file name is prefixed with a letter and `:` then this is used to set the colour for that image. E.g. an active image name of `R:HoHoHo` would load `HoHoHo.mono`, and when displayed show red LEDs.
 
+Note, you can also prefix the image name (before the colour and `:` if used) with a `*` to force a full flashing refresh.
+
 ## Image files
 
 The image files are loaded from a web server. The `imageurl` setting is used to set this. It is recommended that `http://` is used rather than `https://` - this is for performance and memory reasons. For security and reliability it is recommended the server be on the local network, e.g. a Raspberry pi.
