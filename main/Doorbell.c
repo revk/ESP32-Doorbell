@@ -261,7 +261,7 @@ getimage (const char *name)
 void
 image_load (const char *name, image_t * i, char c)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
-   if (*name == '*')
+   if (anme&&*name == '*')
    {                            // Full refresh
       gfx_refresh ();
       name++;
