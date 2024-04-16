@@ -57,20 +57,20 @@ image_t *active = NULL;
 const char *
 getidle (time_t t)
 {
-   const char season = *revk_season (t);
-   if (*imagemoon && season == 'M')
+   const char *season = revk_season (t);
+   if (*imagemoon && *season == 'M')
       return imagemoon;
-   if (*imagenew && season == 'N')
+   if (*imagenew && *season == 'N')
       return imagenew;
-   if (*imageval && season == 'V')
+   if (*imageval && *season == 'V')
       return imageval;
-   if (*imagexmas && season == 'X')
+   if (*imagexmas && *season == 'X')
       return imagexmas;
-   if (*imageyear && season == 'Y')
+   if (*imageyear && *season == 'Y')
       return imageyear;
-   if (*imagehall && season == 'H')
+   if (*imagehall && *season == 'H')
       return imagehall;
-   if (*imageeast && season == 'E')
+   if (*imageeast && *season == 'E')
       return imageeast;
    return imageidle;
 }
@@ -190,7 +190,8 @@ getimage (const char *name)
    {                            // Got new image
       jo_t j = jo_object_alloc ();
       jo_string (j, "name", name);
-      jo_string (j, "url", url);
+      if (url || i)
+         jo_string (j, "url", url ? : i->url);
       jo_int (j, "len", len);
       revk_info ("image", &j);
       if (gfxinvert)
