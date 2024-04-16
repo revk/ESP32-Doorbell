@@ -601,8 +601,8 @@ led_task (void *arg)
       uint8_t r = (rgb >> 16),
          g = (rgb >> 8),
          b = rgb;
-      if (r == or && g == og && b == ob)
-      {                         // No change
+      if (r == or && g == og && b == ob && !led_colour[1])
+      {                         // No change and not flashing
          usleep (10000);
          continue;
       }
