@@ -42,9 +42,9 @@ The idle and active images have an overlay of a QR code on the bottom left if th
 
 The rear LEDs show a colour related to an image - this is by default black (off) when idle and blue when active.
 
-However, if the image file name is prefixed with a letter and `:` then this is used to set the colour for that image. E.g. an active image name of `R:HoHoHo` would load `HoHoHo.mono`, and when displayed show red LEDs.
+You can prefix any image name with one of more colour letters and a `:`.
 
-Note, you can also prefix the image name (before the colour and `:` if used) with a `*` to force a full flashing refresh.
+Note, you can also prefix the image name (before the colours, if used) with a `*` to force a full flashing refresh.
 
 ## Image files
 
