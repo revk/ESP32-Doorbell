@@ -875,7 +875,7 @@ app_main ()
       if (pushed)
       {                         // Bell was pushed
          static uint32_t tick = 0;
-         if (last || up / 5 != tick)
+         if (last || (*activename != '*' && up / 5 != tick))
          {                      // Show, and reinforce image
             tick = up / 5;
             if (last)
