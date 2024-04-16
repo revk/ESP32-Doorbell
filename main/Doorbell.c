@@ -831,7 +831,10 @@ app_main ()
             if (override < up)
                override = up + holdtime;
             last = 0;
-            for (int n = 0; n < 3; n++)
+            int times = 3;
+            if (*t == '*')
+               times = 1;       // Full refresh
+            for (int n = 0; n < times; n++)
             {
                gfx_lock ();
                image_load (t, i, 'B');
@@ -872,7 +875,7 @@ app_main ()
       if (pushed)
       {                         // Bell was pushed
          static uint32_t tick = 0;
-         if (last || up / 5 != tick)
+         if (last || (*activename != '*' && up / 5 != tick))
          {                      // Show, and reinforce image
             tick = up / 5;
             if (last)
