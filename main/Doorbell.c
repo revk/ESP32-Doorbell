@@ -80,6 +80,8 @@ skipcolour (const char *n)
 {
    if (!n || !*n)
       return n;
+   if (n && *n == '*')
+      n++;
    if (n && *n && n[1] == ':')
       n += 2;
    return n;
@@ -259,8 +261,16 @@ getimage (const char *name)
 void
 image_load (const char *name, image_t * i, char c)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
+   if (*name == '*')
+   {                            // Full refresh
+      gfx_refresh ();
+      name++;
+   }
    if (name && *name && name[1] == ':')
+   {
       c = *name;
+      name += 2;
+   }
    led_colour = c;
    if (i && i->data)
       gfx_load (i->data);
