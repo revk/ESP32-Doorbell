@@ -29,7 +29,8 @@ uint32_t last = -1;
 char activename[30] = "";
 char overridename[30] = "";
 led_strip_handle_t strip = NULL;
-volatile char led_colour = 0;
+volatile char led_colour[3] = { 0 };
+
 volatile char overridemsg[1000] = "";
 
 struct
@@ -80,10 +81,13 @@ skipcolour (const char *n)
 {
    if (!n || !*n)
       return n;
-   if (n && *n == '*')
-      n++;
-   if (n && *n && n[1] == ':')
-      n += 2;
+   if (*n == '*')
+      n++;                      // Full refresh
+   const char *c = n;
+   while (*c && isalpha ((int) (unsigned char) *c))
+      c++;                      // Colours
+   if (*c == ':')
+      n = c + 1;                // Yep, colours (end in :)
    return n;
 }
 
@@ -266,12 +270,19 @@ image_load (const char *name, image_t * i, char c)
       gfx_refresh ();
       name++;
    }
-   if (name && *name && name[1] == ':')
-   {
-      c = *name;
-      name += 2;
-   }
-   led_colour = c;
+   const char *colours = name;
+   while (*colours && isalpha ((int) (unsigned char) *colours))
+      colours++;
+   int n = 0;
+   if (*colours == ':')
+   {                            // Colours
+      colours = name;
+      while (isalpha ((int)(unsigned char)*colours) && n < sizeof (led_colour))
+         led_colour[n++] = *colours++;
+   } else
+      led_colour[n++] = c;      // Single from arg
+   while (n < sizeof (led_colour))
+      led_colour[n++] = 0;
    if (i && i->data)
       gfx_load (i->data);
 }
@@ -576,10 +587,15 @@ led_task (void *arg)
 {
    uint8_t or = 0,
       og = 0,
-      ob = 0;
+      ob = 0,
+      n = 0;
    while (1)
    {
-      char c = led_colour;
+      char c = led_colour[n];
+      if (!c)
+         c = led_colour[n = 0];
+      if (++n >= sizeof (led_colour))
+         n = 0;
       uint32_t rgb = revk_rgb (c);
       uint8_t r = (rgb >> 16),
          g = (rgb >> 8),
