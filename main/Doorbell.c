@@ -29,7 +29,7 @@ uint32_t last = -1;
 char activename[30] = "";
 char overridename[30] = "";
 led_strip_handle_t strip = NULL;
-volatile char led_colour[3] = { 0 };
+volatile char led_colour[20] = { 0 };
 
 volatile char overridemsg[1000] = "";
 
@@ -265,14 +265,11 @@ getimage (const char *name)
 void
 image_load (const char *name, image_t * i, char c)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
-   if (name && *name == '*')
-   {                            // Full refresh
-      gfx_refresh ();
-      name++;
-   }
    int n = 0;
    if (name)
    {
+      if (*name == '*')
+         name++;                // Skip, refresh actually done in calling side
       const char *colours = name;
       while (*colours && isalpha ((int) (unsigned char) *colours))
          colours++;
@@ -610,7 +607,10 @@ led_task (void *arg)
          continue;
       }
       // Fade
-      for (int t = 0; t <= 0xFF; t += 0x0F)
+      int t = 0;
+      if (led_colour[1])
+         t = 0xFF;              // Not fade as multi colour flashing
+      for (; t <= 0xFF; t += 0xF)
       {
          uint8_t RI,
            R = gamma8[(t * r + (0xFF - t) * or) / 0xFF];
@@ -635,7 +635,7 @@ led_task (void *arg)
             else
                led_strip_set_pixel (strip, i, R, G, B);
          led_strip_refresh (strip);
-         usleep (50000);
+         usleep (led_colour[1] ? 100000 : 50000);
       }
       or = r;
       og = g;
@@ -851,11 +851,10 @@ app_main ()
             if (override < up)
                override = up + holdtime;
             last = 0;
-            int times = 3;
-            if (*t == '*')
-               times = 1;       // Full refresh
-            for (int n = 0; n < times; n++)
+            for (int n = 0; n < 3; n++)
             {
+               if (!n && *t == '*')
+                  gfx_refresh ();
                gfx_lock ();
                image_load (t, i, 'B');
                addqr ();
@@ -895,7 +894,7 @@ app_main ()
       if (pushed)
       {                         // Bell was pushed
          static uint32_t tick = 0;
-         if (last || (*activename != '*' && up / 5 != tick))
+         if (last || up / 5 != tick)
          {                      // Show, and reinforce image
             tick = up / 5;
             if (last)
@@ -928,6 +927,8 @@ app_main ()
                gfx_message ("/ / / / / / /PLEASE/WAIT");
             else
                image_load (activename, active, 'B');
+            if (last && *activename == '*')
+               gfx_refresh ();
             addqr ();
             gfx_unlock ();
             if (last)
