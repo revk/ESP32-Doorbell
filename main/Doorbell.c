@@ -515,7 +515,7 @@ app_callback (int client, const char *prefix, const char *target, const char *su
          setactive (b.tasawaystate ? imageaway : b.tasbusystate ? imagebusy : imagewait);
       }
    }
-   if (client || !prefix || target || strcmp (prefix, prefixcommand) || !suffix)
+   if (client || !prefix || target || strcmp (prefix, topiccommand) || !suffix)
       return NULL;              //Not for us or not a command from main MQTT
    if (!strcmp (suffix, "connect"))
    {

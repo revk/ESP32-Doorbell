@@ -32,7 +32,7 @@ s	image.busy	Y:Busy					// Busy image name
 s	image.away	R:Away					// Away image name
 
 s	postcode						// Postcode (adds QR to images)
-s	toot							// MQTT topic to toot
+s	toot							// Toot username 
 
 s	mqtt.bell			.live=1			// MQTT topic and payload for Bell normally
 s	mqtt.busy			.live=1			// MQTT topic and payload for Bell when busy
