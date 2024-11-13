@@ -40,6 +40,7 @@ struct
    uint8_t tasawaystate:1;
    uint8_t tasbusystate:1;
    uint8_t getimages:1;
+   uint8_t btn:1;
 } volatile b;
 
 typedef struct image_s image_t;
@@ -568,17 +569,21 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 void
 push_task (void *arg)
 {
-   if (!btn1.set)
+   if (!btn1.set || revk_gpio_input (btn1))
    {
+      ESP_LOGE (TAG, "No btn1");
       vTaskDelete (NULL);
       return;
    }
-   revk_gpio_input (btn1);
    while (1)
    {
       uint8_t l = revk_gpio_get (btn1);
-      if (l)
+      if (l && !b.btn)
+      {
+         ESP_LOGE (TAG, "Pushed btn1");
          pushed = uptime () + holdtime;
+      }
+      b.btn = l;
       usleep (10000);
    }
 }
