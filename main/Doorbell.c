@@ -572,6 +572,13 @@ push_task (void *arg)
    if (!btn1.set || revk_gpio_input (btn1))
    {
       ESP_LOGE (TAG, "No btn1");
+      if (btn1.set)
+      {
+         jo_t j = jo_object_alloc ();
+         jo_string (j, "error", "Btn init failed");
+         jo_int (j, "gpio", btn1.num);
+         revk_error ("btn1", &j);
+      }
       vTaskDelete (NULL);
       return;
    }
@@ -581,6 +588,7 @@ push_task (void *arg)
       if (l && !b.btn)
       {
          ESP_LOGE (TAG, "Pushed btn1");
+         revk_info ("btn1", NULL);
          pushed = uptime () + holdtime;
       }
       b.btn = l;
