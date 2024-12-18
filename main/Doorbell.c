@@ -712,7 +712,7 @@ app_main ()
          revk_error ("gfx", &j);
       }
    }
-   if (sdmosi.set)
+   if (sdcmd.set)
    {
       revk_gpio_input (sdcd);
       sdmmc_slot_config_t slot = SDMMC_SLOT_CONFIG_DEFAULT ();
