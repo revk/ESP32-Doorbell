@@ -42,8 +42,10 @@ s	tas.bell						// Tasmota name for switch to send for bell
 s	tas.busy						// Tasmota name for switch to monitor for busy
 s	tas.away						// Tasmota name for switch to monitor for away
 
-gpio	sd.ss		3					// MicroSD SS
-gpio	sd.mosi		4					// MicroSD MOSI
-gpio	sd.sck		5					// MicroSD SCK
-gpio	sd.miso		6					// MicroSD MISO
-gpio	sd.cd		-7					// MicroSD CD
+gpio    sd.dat2                         // MicroSD DAT2
+gpio    sd.dat3         .old="sdss"     // MicroSD DAT3
+gpio    sd.cmd          .old="sdmosi"   // MicroSD CMD
+gpio    sd.clk          .old="sdsck"    // MicroSD CLK
+gpio    sd.dat0         .old="sdmiso"   // MicroSD DAT0
+gpio    sd.dat1                         // MicroSD DAT1
+gpio    sd.cd                           // MicroSD CD
