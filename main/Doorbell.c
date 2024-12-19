@@ -13,12 +13,16 @@ static const char TAG[] = "Doorbell";
 #include "esp_crt_bundle.h"
 #include "esp_vfs_fat.h"
 #include <driver/sdmmc_host.h>
+#include <driver/uart.h>
 #include "gfx.h"
 #include "iec18004.h"
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
 
 #define	UPDATERATE	60
+
+#define	NFCUART	1
+#define NFCBUF  280
 
 const char sd_mount[] = "/sd";
 
@@ -568,6 +572,76 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 #endif
 
 void
+nfc_task (void *arg)
+{
+   esp_err_t err = 0;
+   if (!nfcrx.set && !nfctx.set)
+   {
+      vTaskDelete (NULL);
+      return;
+   }
+   if (nfcrx.set)
+   {                            // NFC function
+      ESP_LOGE (TAG, "No NFC code yet");
+      vTaskDelete (NULL);
+      return;
+   }
+   // Monitor tx for updates for LEDs
+   uart_config_t uart_config = {
+      .baud_rate = 115200,
+      .data_bits = UART_DATA_8_BITS,
+      .parity = UART_PARITY_DISABLE,
+      .stop_bits = UART_STOP_BITS_1,
+      .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+      .source_clk = UART_SCLK_DEFAULT,
+   };
+   if (!err)
+      err = uart_param_config (NFCUART, &uart_config);
+   if (!err)
+      err = gpio_reset_pin (nfctx.num);
+   if (!err)
+      err = uart_set_pin (NFCUART, -1, nfctx.num, -1, -1);
+   if (!err && !uart_is_driver_installed (NFCUART))
+   {
+      ESP_LOGE (TAG, "Installing UART driver %d", NFCUART);
+      err = uart_driver_install (NFCUART, NFCBUF, 0, 0, NULL, 0);
+   }
+   if (err)
+   {
+      ESP_LOGE (TAG, "UART fail %s", esp_err_to_name (err));
+      vTaskDelete (NULL);
+      return;
+   }
+   uint8_t buf[NFCBUF];
+   while (1)
+   {
+      int l = uart_read_bytes (NFCUART, buf, NFCBUF, 5 / portTICK_PERIOD_MS ? : 1);
+      if (l <= 0)
+         continue;
+      uint8_t *p = buf,
+         *e = buf + l;
+      while (p + 2 < e && (*p || p[1] != 0xFF))
+         p++;
+      if (*p || p[1] != 0xFF)
+         continue;
+      p += 2;
+      if (*p < 2 || *p != 0x100 - p[1] || *p - 2 > (e - p))
+         continue;
+      e = p + (*p) + 2;         // Ignoring checksum for now
+      p += 2;
+      if (*p != 0xD4)
+         continue;
+      p++;
+      if (*p == 0x0E && e == p + 3)
+      {
+         uint8_t l = (p[1] & 0x3F) | ((p[2] & 6) << 6);
+         ESP_LOGE (TAG, "LED %02X", l);
+      }
+      //ESP_LOG_BUFFER_HEX_LEVEL (TAG, p, (int) (e - p), ESP_LOG_ERROR);
+   }
+}
+
+void
 push_task (void *arg)
 {
    if (!btn1.set || revk_gpio_input (btn1))
@@ -666,6 +740,7 @@ app_main ()
    revk_gpio_output (relay, 0);
 
    revk_task ("push", push_task, NULL, 4);
+   revk_task ("nfc", nfc_task, NULL, 4);
 
    setactive (imagewait);
 

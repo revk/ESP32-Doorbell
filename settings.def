@@ -49,3 +49,6 @@ gpio    sd.clk          .old="sdsck"    // MicroSD CLK
 gpio    sd.dat0         .old="sdmiso"   // MicroSD DAT0
 gpio    sd.dat1                         // MicroSD DAT1
 gpio    sd.cd                           // MicroSD CD
+
+gpio	nfc.rx				// NFC Reader Rx from reader (experimental)
+gpio	nfc.tx				// NFC Reader Tx to reader (or monitor if no Rx set)
