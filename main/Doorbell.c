@@ -635,7 +635,20 @@ nfc_task (void *arg)
       if (*p == 0x0E && e == p + 3)
       {
          uint8_t l = (p[1] & 0x3F) | ((p[2] & 6) << 6);
-         ESP_LOGE (TAG, "LED %02X", l);
+         static uint8_t last1 = 0,
+            last2 = 0,
+            solid = 0,
+            blink = 0;
+         uint8_t b = ((last1 ^ l) | (last1 ^ last2));
+         last1 = last2;
+         last2 = l;
+         l &= ~b;
+         if (blink != b || solid != l)
+         {
+            blink = b;
+            solid = l;
+            ESP_LOGE (TAG, "LED solid=%02X blink=%02X", solid, blink);
+         }
       }
       //ESP_LOG_BUFFER_HEX_LEVEL (TAG, p, (int) (e - p), ESP_LOG_ERROR);
    }
