@@ -637,11 +637,13 @@ nfc_task (void *arg)
          uint8_t l = (p[1] & 0x3F) | ((p[2] & 6) << 6);
          static uint8_t last1 = 0,
             last2 = 0,
+            last3 = 0,
             solid = 0,
             blink = 0;
-         uint8_t b = ((last1 ^ l) | (last1 ^ last2));
+         uint8_t b = ((last1 ^ l) | (last1 ^ last2) | (last2 ^ last3));
          last1 = last2;
-         last2 = l;
+         last2 = last3;
+         last3 = l;
          l &= ~b;
          if (blink != b || solid != l)
          {
