@@ -12,6 +12,7 @@ static const char TAG[] = "Doorbell";
 #include "esp_http_server.h"
 #include "esp_crt_bundle.h"
 #include "esp_vfs_fat.h"
+#include <driver/sdmmc_host.h>
 #include "gfx.h"
 #include "iec18004.h"
 #include <hal/spi_types.h>
@@ -40,6 +41,7 @@ struct
    uint8_t tasawaystate:1;
    uint8_t tasbusystate:1;
    uint8_t getimages:1;
+   uint8_t btn:1;
 } volatile b;
 
 typedef struct image_s image_t;
@@ -568,17 +570,29 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 void
 push_task (void *arg)
 {
-   if (!btn1.set)
+   if (!btn1.set || revk_gpio_input (btn1))
    {
+      ESP_LOGE (TAG, "No btn1");
+      if (btn1.set)
+      {
+         jo_t j = jo_object_alloc ();
+         jo_string (j, "error", "Btn init failed");
+         jo_int (j, "gpio", btn1.num);
+         revk_error ("btn1", &j);
+      }
       vTaskDelete (NULL);
       return;
    }
-   revk_gpio_input (btn1);
    while (1)
    {
       uint8_t l = revk_gpio_get (btn1);
-      if (l)
+      if (l && !b.btn)
+      {
+         ESP_LOGE (TAG, "Pushed btn1");
+         revk_info ("btn1", NULL);
          pushed = uptime () + holdtime;
+      }
+      b.btn = l;
       usleep (10000);
    }
 }
@@ -698,55 +712,38 @@ app_main ()
          revk_error ("gfx", &j);
       }
    }
-   if (sdmosi.set)
+   if (sdcmd.set)
    {
       revk_gpio_input (sdcd);
-      sdmmc_host_t host = SDSPI_HOST_DEFAULT ();
-      host.max_freq_khz = SDMMC_FREQ_PROBING;
-      spi_bus_config_t bus_cfg = {
-         .mosi_io_num = sdmosi.num,
-         .miso_io_num = sdmiso.num,
-         .sclk_io_num = sdsck.num,
-         .quadwp_io_num = -1,
-         .quadhd_io_num = -1,
-         .max_transfer_sz = 4000,
+      sdmmc_slot_config_t slot = SDMMC_SLOT_CONFIG_DEFAULT ();
+      slot.clk = sdclk.num;
+      slot.cmd = sdcmd.num;
+      slot.d0 = sddat0.num;
+      slot.d1 = sddat1.set ? sddat1.num : -1;
+      slot.d2 = sddat2.set ? sddat2.num : -1;
+      slot.d3 = sddat3.set ? sddat3.num : -1;
+      //slot.cd = sdcd.set ? sdcd.num : -1; // We do CD, and not sure how we would tell it polarity
+      slot.width = (sddat2.set && sddat3.set ? 4 : sddat1.set ? 2 : 1);
+      if (slot.width == 1)
+         slot.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP; // Old boards?
+      sdmmc_host_t host = SDMMC_HOST_DEFAULT ();
+      host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
+      host.slot = SDMMC_HOST_SLOT_1;
+      esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+         .format_if_mount_failed = 1,
+         .max_files = 2,
+         .allocation_unit_size = 16 * 1024,
+         .disk_status_check_enable = 1,
       };
-      esp_err_t ret = spi_bus_initialize (host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
-      if (ret != ESP_OK)
+      if (esp_vfs_fat_sdmmc_mount (sd_mount, &host, &slot, &mount_config, &card))
       {
          jo_t j = jo_object_alloc ();
-         jo_string (j, "error", "SPI failed");
-         jo_int (j, "code", ret);
-         jo_int (j, "MOSI", sdmosi.num);
-         jo_int (j, "MISO", sdmiso.num);
-         jo_int (j, "CLK", sdsck.num);
+         ESP_LOGE (TAG, "SD Mount failed");
+         jo_string (j, "error", "Failed to mount");
          revk_error ("SD", &j);
+         card = NULL;
       } else
-      {
-         esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-            .format_if_mount_failed = 1,
-            .max_files = 2,
-            .allocation_unit_size = 16 * 1024,
-            .disk_status_check_enable = 1,
-         };
-         sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT ();
-         //slot_config.gpio_cs = sdss.num;
-         slot_config.gpio_cs = -1;
-         revk_gpio_output (sdss, 0);    // Bodge for faster access when one SD card and ESP IDF V5+
-         slot_config.gpio_cd = sdcd.num;
-         slot_config.host_id = host.slot;
-         ret = esp_vfs_fat_sdspi_mount (sd_mount, &host, &slot_config, &mount_config, &card);
-         if (ret)
-         {
-            ESP_LOGE (TAG, "SD %d", ret);
-            jo_t j = jo_object_alloc ();
-            jo_string (j, "error", "Failed to mount");
-            jo_int (j, "code", ret);
-            revk_error ("SD", &j);
-            card = NULL;
-         }
-         // TODO SD LED
-      }
+         ESP_LOGE (TAG, "SD Mounted");
    }
 
    gfx_lock ();
