@@ -48,6 +48,9 @@ struct
    uint8_t btn:1;
 } volatile b;
 
+uint8_t nfcled = 0;
+uint8_t nfcledoverride = 0;
+
 typedef struct image_s image_t;
 struct image_s
 {
@@ -640,16 +643,18 @@ nfc_task (void *arg)
             last3 = 0,
             solid = 0,
             blink = 0;
-         uint8_t b = ((last1 ^ l) | (last1 ^ last2) | (last2 ^ last3));
+         uint8_t c = ((last1 ^ l) | (last1 ^ last2) | (last2 ^ last3));
          last1 = last2;
          last2 = last3;
-         last3 = l;
-         l &= ~b;
-         if (blink != b || solid != l)
-         {
-            blink = b;
+         nfcled = last3 = l;
+         l &= ~c;
+         if (blink != c || solid != l)
+         {                      // Change, update actual LEDs.
+
+            blink = c;
             solid = l;
-            ESP_LOGE (TAG, "LED solid=%02X blink=%02X", solid, blink);
+            nfcledoverride = 255;
+            //ESP_LOGE (TAG, "LED solid=%02X blink=%02X", solid, blink);
          }
       }
       //ESP_LOG_BUFFER_HEX_LEVEL (TAG, p, (int) (e - p), ESP_LOG_ERROR);
@@ -695,6 +700,44 @@ led_task (void *arg)
       n = 0;
    while (1)
    {
+      if (nfcledoverride)
+      {
+         uint8_t s = 1;
+         for (int i = 0; i < leds; i++)
+         {
+            uint8_t led = nfcled;
+            char c = 'K';
+            if (led)
+            {
+               while (s && !(s & led))
+                  s <<= 1;
+               if (!s)
+               {
+                  s = 1;
+                  while (s && !(s & led))
+                     s <<= 1;
+               }
+               if (s == 2)
+                  c = 'G';
+               else if (s == 4)
+                  c = 'Y';
+               else if (s == 8)
+                  c = 'R';
+               if (!(s <<= 1))
+                  s = 1;
+            }
+            revk_led (strip, i, 255, revk_rgb (c));
+         }
+         led_strip_refresh (strip);
+         usleep (10000);
+         if (--nfcledoverride)
+            continue;
+         // Done
+         for (int i = 0; i < leds; i++)
+            revk_led (strip, i, 255, 0);
+         or = og = ob = 0;
+         led_strip_refresh (strip);
+      }
       char c = led_colour[n];
       if (!c)
          c = led_colour[n = 0];
