@@ -8,7 +8,7 @@ gpio	gfx.dc		37					// E-Paper DC
 gpio	gfx.rst		36					// E-Paper RST
 gpio	gfx.busy	35					// E-Paper BUSY
 u8	gfx.flip	6					// E-Paper display flip
-bit	gfx.invert						// E-Paper invert
+bit	gfx.invert	1					// E-Paper invert
 gpio	rgb		2					// RGB LED chain
 gpio	relay							// Relay output
 u8	leds		24					// Number of LEDs
@@ -42,13 +42,13 @@ s	tas.bell						// Tasmota name for switch to send for bell
 s	tas.busy						// Tasmota name for switch to monitor for busy
 s	tas.away						// Tasmota name for switch to monitor for away
 
-gpio    sd.dat2                         // MicroSD DAT2
-gpio    sd.dat3         .old="sdss"     // MicroSD DAT3
-gpio    sd.cmd          .old="sdmosi"   // MicroSD CMD
-gpio    sd.clk          .old="sdsck"    // MicroSD CLK
-gpio    sd.dat0         .old="sdmiso"   // MicroSD DAT0
-gpio    sd.dat1                         // MicroSD DAT1
-gpio    sd.cd                           // MicroSD CD
+gpio    sd.dat2                         	// MicroSD DAT2
+gpio    sd.dat3         3	.old="sdss"     // MicroSD DAT3 / SS
+gpio    sd.cmd          4	.old="sdmosi"   // MicroSD CMD / MOSI
+gpio    sd.clk          5	.old="sdsck"    // MicroSD CLK
+gpio    sd.dat0         6	.old="sdmiso"   // MicroSD DAT0 / MISO
+gpio    sd.dat1                         	// MicroSD DAT1
+gpio    sd.cd           -7               	// MicroSD CD
 
 gpio	nfc.rx				// NFC Reader Rx from reader (experimental)
-gpio	nfc.tx				// NFC Reader Tx to reader (or monitor if no Rx set)
+gpio	nfc.tx		33		// NFC Reader Tx to reader (or monitor if no Rx set)
