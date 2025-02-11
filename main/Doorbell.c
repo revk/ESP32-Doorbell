@@ -13,12 +13,16 @@ static const char TAG[] = "Doorbell";
 #include "esp_crt_bundle.h"
 #include "esp_vfs_fat.h"
 #include <driver/sdmmc_host.h>
+#include <driver/uart.h>
 #include "gfx.h"
 #include "iec18004.h"
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
 
 #define	UPDATERATE	60
+
+#define	NFCUART	1
+#define NFCBUF  280
 
 const char sd_mount[] = "/sd";
 
@@ -43,6 +47,9 @@ struct
    uint8_t getimages:1;
    uint8_t btn:1;
 } volatile b;
+
+uint8_t nfcled = 0;
+uint8_t nfcledoverride = 0;
 
 typedef struct image_s image_t;
 struct image_s
@@ -568,6 +575,93 @@ app_callback (int client, const char *prefix, const char *target, const char *su
 #endif
 
 void
+nfc_task (void *arg)
+{
+   esp_err_t err = 0;
+   if (!nfcrx.set && !nfctx.set)
+   {
+      vTaskDelete (NULL);
+      return;
+   }
+   if (nfcrx.set)
+   {                            // NFC function
+      ESP_LOGE (TAG, "No NFC code yet");
+      vTaskDelete (NULL);
+      return;
+   }
+   // Monitor tx for updates for LEDs
+   uart_config_t uart_config = {
+      .baud_rate = 115200,
+      .data_bits = UART_DATA_8_BITS,
+      .parity = UART_PARITY_DISABLE,
+      .stop_bits = UART_STOP_BITS_1,
+      .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+      .source_clk = UART_SCLK_DEFAULT,
+   };
+   if (!err)
+      err = uart_param_config (NFCUART, &uart_config);
+   if (!err)
+      err = gpio_reset_pin (nfctx.num);
+   if (!err)
+      err = uart_set_pin (NFCUART, -1, nfctx.num, -1, -1);
+   if (!err && !uart_is_driver_installed (NFCUART))
+   {
+      ESP_LOGE (TAG, "Installing UART driver %d", NFCUART);
+      err = uart_driver_install (NFCUART, NFCBUF, 0, 0, NULL, 0);
+   }
+   if (err)
+   {
+      ESP_LOGE (TAG, "UART fail %s", esp_err_to_name (err));
+      vTaskDelete (NULL);
+      return;
+   }
+   uint8_t buf[NFCBUF];
+   while (1)
+   {
+      int l = uart_read_bytes (NFCUART, buf, NFCBUF, 5 / portTICK_PERIOD_MS ? : 1);
+      if (l <= 0)
+         continue;
+      uint8_t *p = buf,
+         *e = buf + l;
+      while (p + 2 < e && (*p || p[1] != 0xFF))
+         p++;
+      if (*p || p[1] != 0xFF)
+         continue;
+      p += 2;
+      if (*p < 2 || *p != 0x100 - p[1] || *p - 2 > (e - p))
+         continue;
+      e = p + (*p) + 2;         // Ignoring checksum for now
+      p += 2;
+      if (*p != 0xD4)
+         continue;
+      p++;
+      if (*p == 0x0E && e == p + 3)
+      {
+         uint8_t l = (p[1] & 0x3F) | ((p[2] & 6) << 6);
+         static uint8_t last1 = 0,
+            last2 = 0,
+            last3 = 0,
+            solid = 0,
+            blink = 0;
+         uint8_t c = ((last1 ^ l) | (last1 ^ last2) | (last2 ^ last3));
+         last1 = last2;
+         last2 = last3;
+         nfcled = last3 = l;
+         l &= ~c;
+         if (blink != c || solid != l)
+         {                      // Change, update actual LEDs.
+
+            blink = c;
+            solid = l;
+            nfcledoverride = 255;
+            //ESP_LOGE (TAG, "LED solid=%02X blink=%02X", solid, blink);
+         }
+      }
+      //ESP_LOG_BUFFER_HEX_LEVEL (TAG, p, (int) (e - p), ESP_LOG_ERROR);
+   }
+}
+
+void
 push_task (void *arg)
 {
    if (!btn1.set || revk_gpio_input (btn1))
@@ -606,6 +700,44 @@ led_task (void *arg)
       n = 0;
    while (1)
    {
+      if (nfcledoverride)
+      {
+         uint8_t s = 1;
+         for (int i = 0; i < leds; i++)
+         {
+            uint8_t led = nfcled;
+            char c = 'K';
+            if (led)
+            {
+               while (s && !(s & led))
+                  s <<= 1;
+               if (!s)
+               {
+                  s = 1;
+                  while (s && !(s & led))
+                     s <<= 1;
+               }
+               if (s == 2)
+                  c = 'G';
+               else if (s == 4)
+                  c = 'Y';
+               else if (s == 8)
+                  c = 'R';
+               if (!(s <<= 1))
+                  s = 1;
+            }
+            revk_led (strip, i, 255, revk_rgb (c));
+         }
+         led_strip_refresh (strip);
+         usleep (10000);
+         if (--nfcledoverride)
+            continue;
+         // Done
+         for (int i = 0; i < leds; i++)
+            revk_led (strip, i, 255, 0);
+         or = og = ob = 0;
+         led_strip_refresh (strip);
+      }
       char c = led_colour[n];
       if (!c)
          c = led_colour[n = 0];
@@ -666,6 +798,7 @@ app_main ()
    revk_gpio_output (relay, 0);
 
    revk_task ("push", push_task, NULL, 4);
+   revk_task ("nfc", nfc_task, NULL, 4);
 
    setactive (imagewait);
 
