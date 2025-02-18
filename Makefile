@@ -17,7 +17,7 @@ beta:
 	-git submodule update --recursive
 	-git commit -a
 	@make set
-	cp $(PROJECT_NAME)*.bin betarelease
+	cp $(PROJECT_NAME)*.bin release/beta
 	git commit -a -m Beta
 	git push
 
