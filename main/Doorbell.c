@@ -1070,7 +1070,7 @@ app_main ()
          if (!idle)
             idle = getimage (basename);
          gfx_lock ();
-         if (!last || (refresh && lastrefresh != now / refresh))
+         if (!last || (refresh && lastrefresh != now / refresh) || (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4))
          {
             lastrefresh = now / refresh;
             gfx_refresh ();
