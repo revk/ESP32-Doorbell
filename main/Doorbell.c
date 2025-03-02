@@ -1066,7 +1066,8 @@ app_main ()
                      p += sprintf (p, "[6]IPv6/[2]");
                      char *q = p;
                      for (int i = 0; i < n; i++)
-                        p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
+                        if (n == 1 || ip[i].addr[0] != 0x000080FE)      // Yeh FE80 backwards
+                           p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
                      while (*q)
                      {
                         *q = toupper (*q);
@@ -1182,7 +1183,6 @@ app_main ()
                active = getimage (activename);
             gfx_lock ();
             gfx_clear (0);
-            // These do a gfx_clear or replace whole buffer anyway
             if (!active)
                gfx_message ("/ / / / / / /PLEASE/WAIT");
             else
@@ -1207,7 +1207,6 @@ app_main ()
             gfx_refresh ();
          }
          last = now / UPDATERATE;
-         // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
             gfx_message ("/ / / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
