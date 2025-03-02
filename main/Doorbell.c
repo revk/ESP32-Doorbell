@@ -1153,10 +1153,8 @@ app_main ()
          pushed = 0;            // Time out
       if (pushed)
       {                         // Bell was pushed
-         static uint32_t tick = 0;
-         if (last || up / 5 != tick)
+         if (last)
          {                      // Show, and reinforce image
-            tick = up / 5;
             if (last)
             {
                revk_gpio_set (relay, 1);
