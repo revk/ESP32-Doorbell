@@ -20,25 +20,27 @@ u8	ledw1							// Position of white idle LED (start)
 u8	ledw2							// Position of white idle LED (end)
 u32	refresh		86400					// Hard refresh (seconds)
 
-s	image.url						// Base URL for images
-s	image.idle	Example					// Idle image name (can prefix names with colour code and colon)
-s	image.moon						// Full moon image name
-s	image.new						// new moon image name
-s	image.val						// Valentine image name
-s	image.xmas						// Xmas image name
-s	image.east						// Easter image name
-s	image.year						// New Year image name
-s	image.hall						// Halloween image name
-s	image.wait	G:Wait					// Wait image name
-s	image.busy	Y:Busy					// Busy image name
-s	image.away	R:Away					// Away image name
+s	image.url				.live		// Base URL for images
+s	image.idle	Example			.live		// Idle image name (can prefix names with colour code and colon)
+s	image.moon				.live		// Full moon image name
+s	image.new				.live		// new moon image name
+s	image.val				.live		// Valentine image name
+s	image.xmas				.live		// Xmas image name
+s	image.east				.live		// Easter image name
+s	image.year				.live		// New Year image name
+s	image.hall				.live		// Halloween image name
+s	image.wait	G:Wait			.live		// Wait image name
+s	image.busy	Y:Busy			.live		// Busy image name
+s	image.away	R:Away			.live		// Away image name
+u32	image.cache	3600	.unit="s"			// Image cache time
+enum	image.plot		1	.live .enums="Normal,Invert,Mask,MaskInvert"	// Plot mode
 
-s	postcode						// Postcode (adds QR to images)
-s	toot							// Toot username 
+s	postcode				.live		// Postcode (adds QR to images)
+s	toot					.live		// Toot username 
 
-s	mqtt.bell			.live=1			// MQTT topic and payload for Bell normally
-s	mqtt.busy			.live=1			// MQTT topic and payload for Bell when busy
-s	mqtt.away			.live=1			// MQTT topic and payload for Bell when away
+s	mqtt.bell			.live			// MQTT topic and payload for Bell normally
+s	mqtt.busy			.live			// MQTT topic and payload for Bell when busy
+s	mqtt.away			.live			// MQTT topic and payload for Bell when away
 
 s	tas.bell						// Tasmota name for switch to send for bell
 s	tas.busy						// Tasmota name for switch to monitor for busy
