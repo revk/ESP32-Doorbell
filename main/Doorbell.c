@@ -53,7 +53,7 @@ typedef struct file_s
 {
    struct file_s *next;         // Next file in chain
    char *url;                   // URL as passed to download
-   uint32_t cache;              // Cache until this uptiome
+   uint32_t cache;              // Cache until this uptime
    time_t changed;              // Last changed
    uint32_t size;               // File size
    uint32_t w;                  // PNG width
