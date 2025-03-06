@@ -39,6 +39,8 @@ volatile char led_colour[20] = { 0 };
 
 volatile char overridemsg[1000] = "";
 
+static SemaphoreHandle_t epd_mutex = NULL;
+
 struct
 {
    uint8_t mqttinit:1;
@@ -466,6 +468,20 @@ web_text (httpd_req_t * req, const char *msg)
    return ESP_OK;
 }
 
+void
+epd_lock (void)
+{
+   xSemaphoreTake (epd_mutex, portMAX_DELAY);
+   gfx_lock ();
+}
+
+void
+epd_unlock (void)
+{
+   gfx_unlock ();
+   xSemaphoreGive (epd_mutex);
+}
+
 #ifdef	CONFIG_LWPNG_ENCODE
 static esp_err_t
 web_frame (httpd_req_t * req)
@@ -515,14 +531,19 @@ web_root (httpd_req_t * req)
    revk_web_send (req, "<p>");
    int32_t w = gfx_width ();
    int32_t h = gfx_height ();
+#define DIV	2
    if (gfxflip & 4)
-      revk_web_send (req,
-                     "<p><div style='width:%dpx;height:%dpx;'><img src='frame.png' style='transform:scale(%d,%d)rotate(90deg)translate(%dpx,%dpx);'></div>",
-                     w, h, gfxflip & 2 ? 1 : -1, gfxflip & 1 ? -1 : 1, (h - w) / 2 * (gfxflip & 1 ? -1 : 1),
-                     (h - w) / 2 * (gfxflip & 2 ? 1 : -1));
+      revk_web_send (req, "<div style='display:inline-block;width:%dpx;height:%dpx;margin:5px;border:10px solid %s;border-%s:20px solid %s;'><img width=%d height=%d src='frame.png' style='transform:scale(%d,%d)rotate(90deg)translate(%dpx,%dpx);'></div>",  //
+                     w / DIV, h / DIV,  //
+                     gfxinvert ? "black" : "white",     //
+                     gfxflip & 4 ? gfxflip & 2 ? "left" : "right" : gfxflip & 2 ? "top" : "bottom",     //
+                     gfxinvert ? "black" : "white",     //
+                     gfx_raw_w () / DIV, gfx_raw_h () / DIV,    //
+                     gfxflip & 2 ? 1 : -1, gfxflip & 1 ? -1 : 1,        //
+                     (h - w) / 2 / DIV * (gfxflip & 1 ? -1 : 1), (h - w) / 2 / DIV * (gfxflip & 2 ? 1 : -1));
    else
-      revk_web_send (req, "<p><img src='frame.png' style='transform:scale(%d,%d);'>", gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1);
-   revk_web_send (req, "</p><p><a href=/>Reload</a></p>");
+      revk_web_send (req, "<img src='frame.png' style='transform:scale(%d,%d);'>", gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1);
+#undef	DIV
 #endif
    if (*imageurl)
    {
@@ -537,7 +558,7 @@ web_root (httpd_req_t * req)
          if (filename != name)
             rgb = revk_rgb (*name);
          revk_web_send (req,
-                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX%s'>%s%s</figcaption></figure>",
+                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img width=240 height=400 src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX%s'>%s%s</figcaption></figure>",
                         gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, gfxinvert ? ";filter:invert(1)" : "", tag,
                         !strcmp (name, isidle) || !strcmp (name, activename) ? " (current)" : "");
       }
@@ -970,6 +991,8 @@ app_main ()
 {
    revk_boot (&app_callback);
    revk_start ();
+   epd_mutex = xSemaphoreCreateMutex ();
+   xSemaphoreGive (epd_mutex);
 
    revk_gpio_output (relay, 0);
 
@@ -1059,9 +1082,9 @@ app_main ()
          ESP_LOGE (TAG, "SD Mounted");
    }
 
-   gfx_lock ();
+   epd_lock ();
    gfx_clear (255);             // Black
-   gfx_unlock ();
+   epd_unlock ();
 
    uint32_t lastrefresh = 0;
    uint8_t hour = -1;
@@ -1144,12 +1167,12 @@ app_main ()
          last = 0;
          for (int n = 0; n < 3; n++)
          {
-            gfx_lock ();
+            epd_lock ();
             gfx_clear (0);
             gfx_message ((char *) overridemsg);
             *overridemsg = 0;
             addqr ();
-            gfx_unlock ();
+            epd_unlock ();
          }
       }
       if (*overridename)
@@ -1167,11 +1190,11 @@ app_main ()
             {
                if (!n && *t == '*')
                   gfx_refresh ();
-               gfx_lock ();
+               epd_lock ();
                gfx_clear (0);
                image_load (t, i, 'B');
                addqr ();
-               gfx_unlock ();
+               epd_unlock ();
             }
          }
          free (t);
@@ -1232,7 +1255,7 @@ app_main ()
             }
             if (!active)
                active = getimage (activename);
-            gfx_lock ();
+            epd_lock ();
             gfx_clear (0);
             if (!active)
                gfx_message ("/ / / / / / /PLEASE/WAIT");
@@ -1241,7 +1264,7 @@ app_main ()
             if (last && *activename == '*')
                gfx_refresh ();
             addqr ();
-            gfx_unlock ();
+            epd_unlock ();
             if (last)
                revk_gpio_set (relay, 0);
             last = 0;
@@ -1250,7 +1273,7 @@ app_main ()
       {                         // Show idle
          if (!idle)
             idle = getimage (basename);
-         gfx_lock ();
+         epd_lock ();
          gfx_clear (0);
          if (!last || (refresh && lastrefresh != now / refresh) || (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4))
          {
@@ -1269,7 +1292,7 @@ app_main ()
 #else
          gfx_7seg (2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
 #endif
-         gfx_unlock ();
+         epd_unlock ();
       }
    }
 }
