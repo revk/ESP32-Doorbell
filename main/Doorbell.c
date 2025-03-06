@@ -18,6 +18,7 @@ static const char TAG[] = "Doorbell";
 #include "iec18004.h"
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
+#include <lwpng.h>
 
 #define	UPDATERATE	60
 
@@ -48,21 +49,27 @@ struct
    uint8_t btn:1;
 } volatile b;
 
+typedef struct file_s
+{
+   struct file_s *next;         // Next file in chain
+   char *url;                   // URL as passed to download
+   uint32_t cache;              // Cache until this uptime
+   time_t changed;              // Last changed
+   uint32_t size;               // File size
+   uint32_t w;                  // PNG width
+   uint32_t h;                  // PNG height
+   uint8_t *data;               // File data
+   uint8_t new:1;               // New file
+   uint8_t card:1;              // We have tried card
+   uint8_t json:1;              // Is JSON
+} file_t;
+
 uint8_t nfcled = 0;
 uint8_t nfcledoverride = 0;
 
-typedef struct image_s image_t;
-struct image_s
-{
-   image_t *next;               // Next in chain
-   time_t loaded;               // When loaded
-   char *url;                   // Malloced Image URL
-   uint8_t *data;               // Malloced image
-};
-
-image_t *cache = NULL;
-image_t *idle = NULL;
-image_t *active = NULL;
+file_t *cache = NULL;
+file_t *idle = NULL;
+file_t *active = NULL;
 
 const char *
 getidle (time_t t)
@@ -100,179 +107,280 @@ skipcolour (const char *n)
    return n;
 }
 
-image_t *
-getimage (const char *name)
+file_t *files = NULL;
+
+file_t *
+find_file (char *url)
 {
-   name = skipcolour (name);
-   if (!name || !*name)
-      return NULL;
-   char *url = NULL;
-   asprintf (&url, "%s/%s.mono", imageurl, name);
-   if (!url)
-      return NULL;
-   image_t *i = NULL;
-   for (i = cache; i && strcmp (i->url, url); i = i->next);
-   const int size = gfx_width () * gfx_height () / 8;
-   int len = 0;
+   file_t *i;
+   for (i = files; i && strcmp (i->url, url); i = i->next);
+   if (!i)
+   {
+      i = mallocspi (sizeof (*i));
+      if (i)
+      {
+         memset (i, 0, sizeof (*i));
+         i->url = strdup (url);
+         i->next = files;
+         files = i;
+      }
+   }
+   return i;
+}
+
+void
+check_file (file_t * i)
+{
+   if (!i || !i->data || !i->size)
+      return;
+   i->changed = time (0);
+   const char *e1 = lwpng_get_info (i->size, i->data, &i->w, &i->h);
+   if (!e1)
+   {
+      i->json = 0;              // PNG
+      i->new = 1;
+      ESP_LOGE (TAG, "Image %s len %lu width %lu height %lu", i->url, i->size, i->w, i->h);
+   } else
+   {                            // Not a png
+      jo_t j = jo_parse_mem (i->data, i->size);
+      jo_skip (j);
+      const char *e2 = jo_error (j, NULL);
+      jo_free (&j);
+      if (!e2)
+      {                         // Valid JSON
+         i->json = 1;
+         i->new = 1;
+         i->w = i->h = 0;
+         ESP_LOGE (TAG, "JSON %s len %lu", i->url, i->size);
+      } else
+      {                         // Not sensible
+         free (i->data);
+         i->data = NULL;
+         i->size = 0;
+         i->w = i->h = 0;
+         i->changed = 0;
+         ESP_LOGE (TAG, "Unknown %s error %s %s", i->url, e1 ? : "", e2 ? : "");
+      }
+   }
+}
+
+file_t *
+download (char *url)
+{
+   file_t *i = find_file (url);
+   if (!i)
+      return i;
+   url = strdup (i->url);       // Use as is
+   ESP_LOGD (TAG, "Get %s", url);
+   int32_t len = 0;
    uint8_t *buf = NULL;
    esp_http_client_config_t config = {
       .url = url,
       .crt_bundle_attach = esp_crt_bundle_attach,
+      .timeout_ms = 20000,
    };
    int response = -1;
-   void readcard (void)
+   if (i->cache > uptime ())
+      response = (i->data ? 304 : 404); // Cached
+   else if (!revk_link_down () && (!strncasecmp (url, "http://", 7) || !strncasecmp (url, "https://", 8)))
    {
-      if (card)
-      {
-         char *fn = NULL;
-         asprintf (&fn, "%s/%s.mono", sd_mount, name);
-         if (fn)
-         {
-            uint32_t start = uptime ();
-            FILE *f = fopen (fn, "r");
-            if (f)
-            {
-               if (!buf)
-                  buf = mallocspi (size);
-               if (buf)
-               {
-                  if (fread (buf, size, 1, f) == 1)
-                  {
-                     if (!i && (i = mallocspi (sizeof (*i))))
-                     {
-                        memset (i, 0, sizeof (*i));
-                        i->url = url;
-                        url = NULL;
-                        i->next = cache;
-                        cache = i;
-                     }
-                     if (i)
-                     {
-                        if (i->data && !memcmp (buf, i->data, size))
-                           response = 0;        // No change
-                        else
-                        {
-                           jo_t j = jo_object_alloc ();
-                           jo_string (j, "read", fn);
-                           jo_int (j, "time", uptime () - start);
-                           revk_info ("SD", &j);
-                           response = 200;      // Treat as received
-                           free (i->data);
-                           i->data = buf;
-                           buf = NULL;
-                        }
-                     }
-                  }
-               }
-               fclose (f);
-            }
-            free (fn);
-         }
-      }
-   }
-   if (!i)
-      readcard ();
-   if (*imageurl && !revk_link_down ())
-   {
+      i->cache = uptime () + imagecache;
       esp_http_client_handle_t client = esp_http_client_init (&config);
       if (client)
       {
-         if (i && i->loaded)
+         if (i->changed)
          {
             char when[50];
             struct tm t;
-            gmtime_r (&i->loaded, &t);
+            gmtime_r (&i->changed, &t);
             strftime (when, sizeof (when), "%a, %d %b %Y %T GMT", &t);
             esp_http_client_set_header (client, "If-Modified-Since", when);
          }
          if (!esp_http_client_open (client, 0))
          {
-            if (esp_http_client_fetch_headers (client) == size)
+            len = esp_http_client_fetch_headers (client);
+            ESP_LOGD (TAG, "%s Len %ld", url, len);
+            if (!len)
+            {                   // Dynamic, FFS
+               size_t l;
+               FILE *o = open_memstream ((char **) &buf, &l);
+               if (o)
+               {
+                  char temp[64];
+                  while ((len = esp_http_client_read (client, temp, sizeof (temp))) > 0)
+                     fwrite (temp, len, 1, o);
+                  fclose (o);
+                  len = l;
+               }
+               if (!buf)
+                  len = 0;
+            } else
             {
-               buf = mallocspi (size);
+               buf = mallocspi (len);
                if (buf)
-                  len = esp_http_client_read_response (client, (char *) buf, size);
+                  len = esp_http_client_read_response (client, (char *) buf, len);
             }
-            if (!buf)
-               esp_http_client_flush_response (client, &len);
             response = esp_http_client_get_status_code (client);
+            if (response != 200 && response != 304)
+               ESP_LOGE (TAG, "Bad response %s (%d)", url, response);
             esp_http_client_close (client);
          }
          esp_http_client_cleanup (client);
       }
+      ESP_LOGD (TAG, "Got %s %d", url, response);
    }
-   if (response == 200 && len == size)
-   {                            // Got new image
-      jo_t j = jo_object_alloc ();
-      jo_string (j, "name", name);
-      if (url || i)
-         jo_string (j, "url", url ? : i->url);
-      jo_int (j, "len", len);
-      revk_info ("image", &j);
-      if (gfxinvert)
-         for (int i = 0; i < size; i++)
-            buf[i] ^= 0xFF;
-      if (!i && (i = mallocspi (sizeof (*i))))
-      {
-         memset (i, 0, sizeof (*i));
-         i->url = url;
-         url = NULL;
-         i->next = cache;
-         cache = i;
-      }
-      if (i)
-      {
-         if (card && (!i->data || memcmp (i->data, buf, size)))
-         {                      // Save, as changed or new
-            char *fn = NULL;
-            asprintf (&fn, "%s/%s.mono", sd_mount, name);
-            if (fn)
-            {
-               uint32_t start = uptime ();
-               FILE *f = fopen (fn, "w");
-               if (f)
-               {
-                  jo_t j = jo_object_alloc ();
-                  if (fwrite (buf, size, 1, f) != 1)
-                     jo_string (j, "error", "write failed");
-                  jo_int (j, "time", uptime () - start);
-                  fclose (f);
-                  jo_string (j, "write", fn);
-                  revk_info ("SD", &j);
-               }
-               free (fn);
-            }
-         }
-         free (i->data);
-         i->data = buf;
-         buf = NULL;
-         i->loaded = time (0);
-      }
-   } else if (response != 304)
+   if (response != 304)
    {
-      if (*imageurl)
-      {
+      if (response != 200)
+      {                         // Failed
          jo_t j = jo_object_alloc ();
-         jo_string (j, "name", name);
          jo_string (j, "url", url);
-         if (len)
-         {
-            jo_int (j, "len", len);
-            jo_int (j, "expect", size);
-         }
-         if (response)
+         if (response && response != -1)
             jo_int (j, "response", response);
+         if (len == -ESP_ERR_HTTP_EAGAIN)
+            jo_string (j, "error", "timeout");
+         else if (len)
+            jo_int (j, "len", len);
          revk_error ("image", &j);
       }
-      readcard ();
+      if (buf)
+      {
+         if (i->data && i->size == len && !memcmp (buf, i->data, len))
+         {
+            free (buf);
+            response = 0;       // No change
+         } else
+         {                      // Change
+            free (i->data);
+            i->data = buf;
+            i->size = len;
+            check_file (i);
+         }
+         buf = NULL;
+      }
+   }
+   if (card)
+   {                            // SD
+      char *s = strrchr (url, '/');
+      if (!s)
+         s = url;
+      if (s)
+      {
+         char *fn = NULL;
+         if (*s == '/')
+            s++;
+         asprintf (&fn, "%s/%s", sd_mount, s);
+         char *q = fn + sizeof (sd_mount);
+         while (*q && isalnum ((int) (uint8_t) * q))
+            q++;
+         if (*q == '.')
+         {
+            q++;
+            while (*q && isalnum ((int) (uint8_t) * q))
+               q++;
+         }
+         *q = 0;
+         if (i->data && response == 200)
+         {                      // Save to card
+            FILE *f = fopen (fn, "w");
+            if (f)
+            {
+               jo_t j = jo_object_alloc ();
+               if (fwrite (i->data, i->size, 1, f) != 1)
+                  jo_string (j, "error", "write failed");
+               fclose (f);
+               jo_string (j, "write", fn);
+               revk_info ("SD", &j);
+               ESP_LOGE (TAG, "Write %s %lu", fn, i->size);
+            } else
+               ESP_LOGE (TAG, "Write fail %s", fn);
+         } else if (!i->card && (!i->data || (response && response != 304 && response != -1)))
+         {                      // Load from card
+            i->card = 1;        // card tried, no need to try again
+            FILE *f = fopen (fn, "r");
+            if (f)
+            {
+               struct stat s;
+               fstat (fileno (f), &s);
+               free (buf);
+               buf = mallocspi (s.st_size);
+               if (buf)
+               {
+                  if (fread (buf, s.st_size, 1, f) == 1)
+                  {
+                     if (i->data && i->size == s.st_size && !memcmp (buf, i->data, i->size))
+                     {
+                        free (buf);
+                        response = 0;   // No change
+                     } else
+                     {
+                        ESP_LOGE (TAG, "Read %s", fn);
+                        jo_t j = jo_object_alloc ();
+                        jo_string (j, "read", fn);
+                        revk_info ("SD", &j);
+                        response = 200; // Treat as received
+                        free (i->data);
+                        i->data = buf;
+                        i->size = s.st_size;
+                        check_file (i);
+                     }
+                     buf = NULL;
+                  }
+               }
+               fclose (f);
+            } else
+               ESP_LOGE (TAG, "Read fail %s", fn);
+         }
+         free (fn);
+      }
    }
    free (buf);
    free (url);
    return i;
 }
 
+// Image plot
+
+typedef struct plot_s
+{
+   gfx_pos_t ox,
+     oy;
+} plot_t;
+
+static void *
+my_alloc (void *opaque, uInt items, uInt size)
+{
+   return mallocspi (items * size);
+}
+
+static void
+my_free (void *opaque, void *address)
+{
+   free (address);
+}
+
+static const char *
+pixel (void *opaque, uint32_t x, uint32_t y, uint16_t r, uint16_t g, uint16_t b, uint16_t a)
+{
+   plot_t *p = opaque;
+   if (a & 0x8000)
+      gfx_pixel (p->ox + x, p->oy + y, (g & 0x8000) ? 255 : 0);
+   return NULL;
+}
+
 void
-image_load (const char *name, image_t * i, char c)
+plot (file_t * i, gfx_pos_t ox, gfx_pos_t oy)
+{
+   plot_t settings = { ox, oy };
+   lwpng_decode_t *p = lwpng_decode (&settings, NULL, &pixel, &my_alloc, &my_free, NULL);
+   lwpng_data (p, i->size, i->data);
+   const char *e = lwpng_decoded (&p);
+   if (e)
+      ESP_LOGE (TAG, "PNG fail %s", e);
+}
+
+void
+image_load (const char *name, file_t * i, char c)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
    int n = 0;
    if (name)
@@ -294,7 +402,26 @@ image_load (const char *name, image_t * i, char c)
    while (n < sizeof (led_colour))
       led_colour[n++] = 0;
    if (i && i->data)
-      gfx_load (i->data);
+   {
+      gfx_colour (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASK ? 'K' : 'W');
+      gfx_background (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASKINVERT ? 'W' : 'K');
+      plot (i, 0, 0);
+      gfx_colour ('K');
+      gfx_background ('W');
+   }
+}
+
+file_t *
+getimage (const char *name)
+{
+   name = skipcolour (name);
+   if (!name || !*name)
+      return NULL;
+   char *url = NULL;
+   asprintf (&url, "%s/%s.png", imageurl, name);
+   file_t *i = download (url);
+   free (url);
+   return i;
 }
 
 void
@@ -939,7 +1066,8 @@ app_main ()
                      p += sprintf (p, "[6]IPv6/[2]");
                      char *q = p;
                      for (int i = 0; i < n; i++)
-                        p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
+                        if (n == 1 || ip[i].addr[0] != 0x000080FE)      // Yeh FE80 backwards
+                           p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
                      while (*q)
                      {
                         *q = toupper (*q);
@@ -964,6 +1092,7 @@ app_main ()
          for (int n = 0; n < 3; n++)
          {
             gfx_lock ();
+            gfx_clear (0);
             gfx_message ((char *) overridemsg);
             *overridemsg = 0;
             addqr ();
@@ -975,7 +1104,7 @@ app_main ()
          ESP_LOGE (TAG, "Override: %s", overridename);
          char *t = strdup (overridename);
          *overridename = 0;
-         image_t *i = getimage (t);
+         file_t *i = getimage (t);
          if (i)
          {
             if (override < up)
@@ -986,6 +1115,7 @@ app_main ()
                if (!n && *t == '*')
                   gfx_refresh ();
                gfx_lock ();
+               gfx_clear (0);
                image_load (t, i, 'B');
                addqr ();
                gfx_unlock ();
@@ -1023,10 +1153,8 @@ app_main ()
          pushed = 0;            // Time out
       if (pushed)
       {                         // Bell was pushed
-         static uint32_t tick = 0;
-         if (last || up / 5 != tick)
+         if (last)
          {                      // Show, and reinforce image
-            tick = up / 5;
             if (last)
             {
                revk_gpio_set (relay, 1);
@@ -1052,7 +1180,7 @@ app_main ()
             if (!active)
                active = getimage (activename);
             gfx_lock ();
-            // These do a gfx_clear or replace whole buffer anyway
+            gfx_clear (0);
             if (!active)
                gfx_message ("/ / / / / / /PLEASE/WAIT");
             else
@@ -1070,13 +1198,13 @@ app_main ()
          if (!idle)
             idle = getimage (basename);
          gfx_lock ();
+         gfx_clear (0);
          if (!last || (refresh && lastrefresh != now / refresh) || (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4))
          {
             lastrefresh = now / refresh;
             gfx_refresh ();
          }
          last = now / UPDATERATE;
-         // These do a gfx_clear or replace whole buffer anyway
          if (!idle)
             gfx_message ("/ / / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
