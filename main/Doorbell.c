@@ -532,17 +532,20 @@ web_root (httpd_req_t * req)
    int32_t w = gfx_width ();
    int32_t h = gfx_height ();
 #define DIV	2
+   revk_web_send (req, "<div style='display:inline-block;width:%dpx;height:%dpx;margin:5px;border:10px solid %s;border-%s:20px solid %s;'><img width=%d height=%d src='frame.png' style='transform:",       //
+                  w / DIV, h / DIV,     //
+                  gfxinvert ? "black" : "white",        //
+                  gfxflip & 4 ? gfxflip & 2 ? "left" : "right" : gfxflip & 2 ? "top" : "bottom",        //
+                  gfxinvert ? "black" : "white",        //
+                  gfx_raw_w () / DIV, gfx_raw_h () / DIV       //
+      );
    if (gfxflip & 4)
-      revk_web_send (req, "<div style='display:inline-block;width:%dpx;height:%dpx;margin:5px;border:10px solid %s;border-%s:20px solid %s;'><img width=%d height=%d src='frame.png' style='transform:scale(%d,%d)rotate(90deg)translate(%dpx,%dpx);'></div>",  //
-                     w / DIV, h / DIV,  //
-                     gfxinvert ? "black" : "white",     //
-                     gfxflip & 4 ? gfxflip & 2 ? "left" : "right" : gfxflip & 2 ? "top" : "bottom",     //
-                     gfxinvert ? "black" : "white",     //
-                     gfx_raw_w () / DIV, gfx_raw_h () / DIV,    //
-                     gfxflip & 2 ? 1 : -1, gfxflip & 1 ? -1 : 1,        //
-                     (h - w) / 2 / DIV * (gfxflip & 1 ? -1 : 1), (h - w) / 2 / DIV * (gfxflip & 2 ? 1 : -1));
-   else
-      revk_web_send (req, "<img src='frame.png' style='transform:scale(%d,%d);'>", gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1);
+      revk_web_send (req, "translate(%dpx,%dpx)rotate(90deg)scale(1,-1)",      //
+		      (w-h)/2/DIV,(h-w)/2/DIV
+		    );
+   revk_web_send (req, "scale(%d,%d);'></div>",
+                  gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1    //
+		 );
 #undef	DIV
 #endif
    if (*imageurl)
