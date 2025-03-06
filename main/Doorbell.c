@@ -466,6 +466,42 @@ web_text (httpd_req_t * req, const char *msg)
    return ESP_OK;
 }
 
+#ifdef	CONFIG_LWPNG_ENCODE
+static esp_err_t
+web_frame (httpd_req_t * req)
+{
+   epd_lock ();
+   uint8_t *png = NULL;
+   size_t len = 0;
+   uint32_t w = gfx_raw_w ();
+   uint32_t h = gfx_raw_h ();
+   uint8_t *b = gfx_raw_b ();
+   ESP_LOGD (TAG, "Encode W=%lu H=%lu", w, h);
+   lwpng_encode_t *p = lwpng_encode_1bit (w, h, &my_alloc, &my_free, NULL);
+   if (b)
+      while (h--)
+      {
+         lwpng_encode_scanline (p, b);
+         b += (w + 7) / 8;
+      }
+   const char *e = lwpng_encoded (&p, &len, &png);
+   ESP_LOGD (TAG, "Encoded %u bytes %s", len, e ? : "");
+   if (e)
+   {
+      revk_web_head (req, *hostname ? hostname : appname);
+      revk_web_send (req, e);
+      revk_web_foot (req, 0, 1, NULL);
+   } else
+   {
+      httpd_resp_set_type (req, "image/png");
+      httpd_resp_send (req, (char *) png, len);
+   }
+   free (png);
+   epd_unlock ();
+   return ESP_OK;
+}
+#endif
+
 static esp_err_t
 web_root (httpd_req_t * req)
 {
@@ -475,6 +511,19 @@ web_root (httpd_req_t * req)
    revk_web_send (req, "<p><a href=/push>Ding!</a></p>");
    if (card)
       revk_web_send (req, "<p>SD card mounted</p>");
+#ifdef	CONFIG_LWPNG_ENCODE
+   revk_web_send (req, "<p>");
+   int32_t w = gfx_width ();
+   int32_t h = gfx_height ();
+   if (gfxflip & 4)
+      revk_web_send (req,
+                     "<p><div style='width:%dpx;height:%dpx;'><img src='frame.png' style='transform:scale(%d,%d)rotate(90deg)translate(%dpx,%dpx);'></div>",
+                     w, h, gfxflip & 2 ? 1 : -1, gfxflip & 1 ? -1 : 1, (h - w) / 2 * (gfxflip & 1 ? -1 : 1),
+                     (h - w) / 2 * (gfxflip & 2 ? 1 : -1));
+   else
+      revk_web_send (req, "<p><img src='frame.png' style='transform:scale(%d,%d);'>", gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1);
+   revk_web_send (req, "</p><p><a href=/>Reload</a></p>");
+#endif
    if (*imageurl)
    {
       time_t now = time (0);
@@ -951,7 +1000,7 @@ app_main ()
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
    config.lru_purge_enable = true;
-   config.max_uri_handlers = 5 + revk_num_web_handlers ();
+   config.max_uri_handlers = 6 + revk_num_web_handlers ();
    if (!httpd_start (&webserver, &config))
    {
       register_get_uri ("/", web_root);
@@ -959,6 +1008,10 @@ app_main ()
       register_get_uri ("/push", web_push);
       register_get_uri ("/message", web_message);
       register_get_uri ("/active", web_active);
+#ifdef	CONFIG_LWPNG_ENCODE
+      if (gfx_bpp () == 1)
+         register_get_uri ("/frame.png", web_frame);
+#endif
       revk_web_settings_add (webserver);
    }
    {
