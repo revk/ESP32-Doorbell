@@ -556,7 +556,7 @@ web_root (httpd_req_t * req)
          const char *filename = skipcolour (name);
          uint32_t rgb = 0x808080;
          if (filename != name)
-            rgb = revk_rgb (*name);
+            rgb = (revk_rgb (*name) & 0xFFFFFF);
          revk_web_send (req,
                         "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img width=240 height=400 src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX%s'>%s%s</figcaption></figure>",
                         gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, gfxinvert ? ";filter:invert(1)" : "", tag,
