@@ -900,10 +900,11 @@ led_task (void *arg)
       n = 0;
    while (1)
    {
+      revk_led (strip, 0, 255, revk_blinker ());
       if (nfcledoverride)
       {
          uint8_t s = 1;
-         for (int i = 0; i < leds; i++)
+         for (int i = 1; i < leds; i++)
          {
             uint8_t led = nfcled;
             char c = 'K';
@@ -933,7 +934,7 @@ led_task (void *arg)
          if (--nfcledoverride)
             continue;
          // Done
-         for (int i = 0; i < leds; i++)
+         for (int i = 1; i < leds; i++)
             revk_led (strip, i, 255, 0);
          or = og = ob = 0;
          led_strip_refresh (strip);
@@ -975,7 +976,7 @@ led_task (void *arg)
             GI = G;
             BI = B;
          }
-         for (int i = 0; i < leds; i++)
+         for (int i = 1; i < leds; i++)
             if (i >= ledw1 && i < ledw2)
                led_strip_set_pixel (strip, i, RI, GI, BI);
             else
