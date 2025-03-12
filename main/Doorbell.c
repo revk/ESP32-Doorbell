@@ -1132,10 +1132,7 @@ app_main ()
                p += sprintf (p, "[6]WiFi/[-5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
                char ip[40];
                if (revk_ipv4 (ip))
-               {
                   p += sprintf (p, "[6] /IPv4/%s/", ip);
-                  asprintf (&qr2, "http://%s/", ip);
-               }
                if (revk_ipv6 (ip))
                   p += sprintf (p, "[6] /IPv6/[2]%s/", ip);
             }
