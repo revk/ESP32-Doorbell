@@ -532,20 +532,18 @@ web_root (httpd_req_t * req)
    int32_t w = gfx_width ();
    int32_t h = gfx_height ();
 #define DIV	2
-   revk_web_send (req, "<div style='display:inline-block;width:%dpx;height:%dpx;margin:5px;border:10px solid %s;border-%s:20px solid %s;'><img width=%d height=%d src='frame.png' style='transform:",       //
+   revk_web_send (req, "<div style='display:inline-block;width:%dpx;height:%dpx;margin:5px;border:10px solid %s;border-%s:20px solid %s;'><img width=%d height=%d src='frame.png' style='transform:",   //
                   w / DIV, h / DIV,     //
                   gfxinvert ? "black" : "white",        //
                   gfxflip & 4 ? gfxflip & 2 ? "left" : "right" : gfxflip & 2 ? "top" : "bottom",        //
                   gfxinvert ? "black" : "white",        //
-                  gfx_raw_w () / DIV, gfx_raw_h () / DIV       //
+                  gfx_raw_w () / DIV, gfx_raw_h () / DIV        //
       );
    if (gfxflip & 4)
-      revk_web_send (req, "translate(%dpx,%dpx)rotate(90deg)scale(1,-1)",      //
-		      (w-h)/2/DIV,(h-w)/2/DIV
-		    );
-   revk_web_send (req, "scale(%d,%d);'></div>",
-                  gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1    //
-		 );
+      revk_web_send (req, "translate(%dpx,%dpx)rotate(90deg)scale(1,-1)",       //
+                     (w - h) / 2 / DIV, (h - w) / 2 / DIV);
+   revk_web_send (req, "scale(%d,%d);'></div>", gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1      //
+      );
 #undef	DIV
 #endif
    if (*imageurl)
@@ -1132,31 +1130,14 @@ app_main ()
             if (sta_netif && *ap.ssid)
             {
                p += sprintf (p, "[6]WiFi/[-5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
+               char ip[40];
+               if (revk_ipv4 (ip))
                {
-                  esp_netif_ip_info_t ip;
-                  if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                     p += sprintf (p, "[6]IPv4/[5]" IPSTR "/[3] /", IP2STR (&ip.ip));
+                  p += sprintf (p, "[6] /IPv4/%s/", ip);
+                  asprintf (&qr2, "http://%s/", ip);
                }
-#ifdef CONFIG_LWIP_IPV6
-               {
-                  esp_ip6_addr_t ip[LWIP_IPV6_NUM_ADDRESSES];
-                  int n = esp_netif_get_all_ip6 (sta_netif, ip);
-                  if (n)
-                  {
-                     p += sprintf (p, "[6]IPv6/[2]");
-                     char *q = p;
-                     for (int i = 0; i < n; i++)
-                        if (n == 1 || ip[i].addr[0] != 0x000080FE)      // Yeh FE80 backwards
-                           p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
-                     while (*q)
-                     {
-                        *q = toupper (*q);
-                        q++;
-                     }
-                     p += sprintf (p, "/[3] /");
-                  }
-               }
-#endif
+               if (revk_ipv6 (ip))
+                  p += sprintf (p, "[6] /IPv6/[2]%s/", ip);
             }
             override = up + startup;
          } else
