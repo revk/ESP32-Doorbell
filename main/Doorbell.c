@@ -39,6 +39,8 @@ volatile char led_colour[20] = { 0 };
 
 volatile char overridemsg[1000] = "";
 
+static SemaphoreHandle_t epd_mutex = NULL;
+
 struct
 {
    uint8_t mqttinit:1;
@@ -466,6 +468,56 @@ web_text (httpd_req_t * req, const char *msg)
    return ESP_OK;
 }
 
+void
+epd_lock (void)
+{
+   xSemaphoreTake (epd_mutex, portMAX_DELAY);
+   gfx_lock ();
+}
+
+void
+epd_unlock (void)
+{
+   gfx_unlock ();
+   xSemaphoreGive (epd_mutex);
+}
+
+#ifdef	CONFIG_LWPNG_ENCODE
+static esp_err_t
+web_frame (httpd_req_t * req)
+{
+   epd_lock ();
+   uint8_t *png = NULL;
+   size_t len = 0;
+   uint32_t w = gfx_raw_w ();
+   uint32_t h = gfx_raw_h ();
+   uint8_t *b = gfx_raw_b ();
+   ESP_LOGD (TAG, "Encode W=%lu H=%lu", w, h);
+   lwpng_encode_t *p = lwpng_encode_1bit (w, h, &my_alloc, &my_free, NULL);
+   if (b)
+      while (h--)
+      {
+         lwpng_encode_scanline (p, b);
+         b += (w + 7) / 8;
+      }
+   const char *e = lwpng_encoded (&p, &len, &png);
+   ESP_LOGD (TAG, "Encoded %u bytes %s", len, e ? : "");
+   if (e)
+   {
+      revk_web_head (req, *hostname ? hostname : appname);
+      revk_web_send (req, e);
+      revk_web_foot (req, 0, 1, NULL);
+   } else
+   {
+      httpd_resp_set_type (req, "image/png");
+      httpd_resp_send (req, (char *) png, len);
+   }
+   free (png);
+   epd_unlock ();
+   return ESP_OK;
+}
+#endif
+
 static esp_err_t
 web_root (httpd_req_t * req)
 {
@@ -475,6 +527,25 @@ web_root (httpd_req_t * req)
    revk_web_send (req, "<p><a href=/push>Ding!</a></p>");
    if (card)
       revk_web_send (req, "<p>SD card mounted</p>");
+#ifdef	CONFIG_LWPNG_ENCODE
+   revk_web_send (req, "<p>");
+   int32_t w = gfx_width ();
+   int32_t h = gfx_height ();
+#define DIV	2
+   revk_web_send (req, "<div style='display:inline-block;width:%dpx;height:%dpx;margin:5px;border:10px solid %s;border-%s:20px solid %s;'><img width=%d height=%d src='frame.png' style='transform:",   //
+                  w / DIV, h / DIV,     //
+                  gfxinvert ? "black" : "white",        //
+                  gfxflip & 4 ? gfxflip & 2 ? "left" : "right" : gfxflip & 2 ? "top" : "bottom",        //
+                  gfxinvert ? "black" : "white",        //
+                  gfx_raw_w () / DIV, gfx_raw_h () / DIV        //
+      );
+   if (gfxflip & 4)
+      revk_web_send (req, "translate(%dpx,%dpx)rotate(90deg)scale(1,-1)",       //
+                     (w - h) / 2 / DIV, (h - w) / 2 / DIV);
+   revk_web_send (req, "scale(%d,%d);'></div>", gfxflip & 1 ? -1 : 1, gfxflip & 2 ? -1 : 1      //
+      );
+#undef	DIV
+#endif
    if (*imageurl)
    {
       time_t now = time (0);
@@ -486,9 +557,9 @@ web_root (httpd_req_t * req)
          const char *filename = skipcolour (name);
          uint32_t rgb = 0x808080;
          if (filename != name)
-            rgb = revk_rgb (*name);
+            rgb = (revk_rgb (*name) & 0xFFFFFF);
          revk_web_send (req,
-                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img wdth=240 height=400 src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX%s'>%s%s</figcaption></figure>",
+                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img width=240 height=400 src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX%s'>%s%s</figcaption></figure>",
                         gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, gfxinvert ? ";filter:invert(1)" : "", tag,
                         !strcmp (name, isidle) || !strcmp (name, activename) ? " (current)" : "");
       }
@@ -827,10 +898,11 @@ led_task (void *arg)
       n = 0;
    while (1)
    {
+      revk_led (strip, 0, 255, revk_blinker ());
       if (nfcledoverride)
       {
          uint8_t s = 1;
-         for (int i = 0; i < leds; i++)
+         for (int i = 1; i < leds; i++)
          {
             uint8_t led = nfcled;
             char c = 'K';
@@ -860,7 +932,7 @@ led_task (void *arg)
          if (--nfcledoverride)
             continue;
          // Done
-         for (int i = 0; i < leds; i++)
+         for (int i = 1; i < leds; i++)
             revk_led (strip, i, 255, 0);
          or = og = ob = 0;
          led_strip_refresh (strip);
@@ -902,7 +974,7 @@ led_task (void *arg)
             GI = G;
             BI = B;
          }
-         for (int i = 0; i < leds; i++)
+         for (int i = 1; i < leds; i++)
             if (i >= ledw1 && i < ledw2)
                led_strip_set_pixel (strip, i, RI, GI, BI);
             else
@@ -921,6 +993,8 @@ app_main ()
 {
    revk_boot (&app_callback);
    revk_start ();
+   epd_mutex = xSemaphoreCreateMutex ();
+   xSemaphoreGive (epd_mutex);
 
    revk_gpio_output (relay, 0);
 
@@ -950,8 +1024,9 @@ app_main ()
    }
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.stack_size += 1024 * 4;
    config.lru_purge_enable = true;
-   config.max_uri_handlers = 5 + revk_num_web_handlers ();
+   config.max_uri_handlers = 6 + revk_num_web_handlers ();
    if (!httpd_start (&webserver, &config))
    {
       register_get_uri ("/", web_root);
@@ -959,6 +1034,10 @@ app_main ()
       register_get_uri ("/push", web_push);
       register_get_uri ("/message", web_message);
       register_get_uri ("/active", web_active);
+#ifdef	CONFIG_LWPNG_ENCODE
+      if (gfx_bpp () == 1)
+         register_get_uri ("/frame.png", web_frame);
+#endif
       revk_web_settings_add (webserver);
    }
    {
@@ -1006,9 +1085,9 @@ app_main ()
          ESP_LOGE (TAG, "SD Mounted");
    }
 
-   gfx_lock ();
+   epd_lock ();
    gfx_clear (255);             // Black
-   gfx_unlock ();
+   epd_unlock ();
 
    uint32_t lastrefresh = 0;
    uint8_t hour = -1;
@@ -1048,35 +1127,15 @@ app_main ()
             esp_wifi_sta_get_ap_info (&ap);
             char *p = (char *) overridemsg;
             char temp[20];
-            p += sprintf (p, "[3] /[-6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
+            p += sprintf (p, "[3] /[_6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
             if (sta_netif && *ap.ssid)
             {
-               p += sprintf (p, "[6]WiFi/[-5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
-               {
-                  esp_netif_ip_info_t ip;
-                  if (!esp_netif_get_ip_info (sta_netif, &ip) && ip.ip.addr)
-                     p += sprintf (p, "[6]IPv4/[5]" IPSTR "/[3] /", IP2STR (&ip.ip));
-               }
-#ifdef CONFIG_LWIP_IPV6
-               {
-                  esp_ip6_addr_t ip[LWIP_IPV6_NUM_ADDRESSES];
-                  int n = esp_netif_get_all_ip6 (sta_netif, ip);
-                  if (n)
-                  {
-                     p += sprintf (p, "[6]IPv6/[2]");
-                     char *q = p;
-                     for (int i = 0; i < n; i++)
-                        if (n == 1 || ip[i].addr[0] != 0x000080FE)      // Yeh FE80 backwards
-                           p += sprintf (p, IPV6STR "/", IPV62STR (ip[i]));
-                     while (*q)
-                     {
-                        *q = toupper (*q);
-                        q++;
-                     }
-                     p += sprintf (p, "/[3] /");
-                  }
-               }
-#endif
+               p += sprintf (p, "[6]WiFi/[_5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
+               char ip[40];
+               if (revk_ipv4 (ip))
+                  p += sprintf (p, "[6] /IPv4/[|]%s/", ip);
+               if (revk_ipv6 (ip))
+                  p += sprintf (p, "[6] /IPv6/[2|]%s/", ip);
             }
             override = up + startup;
          } else
@@ -1091,12 +1150,12 @@ app_main ()
          last = 0;
          for (int n = 0; n < 3; n++)
          {
-            gfx_lock ();
+            epd_lock ();
             gfx_clear (0);
             gfx_message ((char *) overridemsg);
             *overridemsg = 0;
             addqr ();
-            gfx_unlock ();
+            epd_unlock ();
          }
       }
       if (*overridename)
@@ -1114,11 +1173,11 @@ app_main ()
             {
                if (!n && *t == '*')
                   gfx_refresh ();
-               gfx_lock ();
+               epd_lock ();
                gfx_clear (0);
                image_load (t, i, 'B');
                addqr ();
-               gfx_unlock ();
+               epd_unlock ();
             }
          }
          free (t);
@@ -1179,7 +1238,7 @@ app_main ()
             }
             if (!active)
                active = getimage (activename);
-            gfx_lock ();
+            epd_lock ();
             gfx_clear (0);
             if (!active)
                gfx_message ("/ / / / / / /PLEASE/WAIT");
@@ -1188,7 +1247,7 @@ app_main ()
             if (last && *activename == '*')
                gfx_refresh ();
             addqr ();
-            gfx_unlock ();
+            epd_unlock ();
             if (last)
                revk_gpio_set (relay, 0);
             last = 0;
@@ -1197,7 +1256,7 @@ app_main ()
       {                         // Show idle
          if (!idle)
             idle = getimage (basename);
-         gfx_lock ();
+         epd_lock ();
          gfx_clear (0);
          if (!last || (refresh && lastrefresh != now / refresh) || (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4))
          {
@@ -1216,7 +1275,7 @@ app_main ()
 #else
          gfx_7seg (2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
 #endif
-         gfx_unlock ();
+         epd_unlock ();
       }
    }
 }
