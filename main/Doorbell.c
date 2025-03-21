@@ -1024,6 +1024,7 @@ app_main ()
    }
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
+   config.stack_size += 1024 * 4;
    config.lru_purge_enable = true;
    config.max_uri_handlers = 6 + revk_num_web_handlers ();
    if (!httpd_start (&webserver, &config))
@@ -1126,15 +1127,15 @@ app_main ()
             esp_wifi_sta_get_ap_info (&ap);
             char *p = (char *) overridemsg;
             char temp[20];
-            p += sprintf (p, "[3] /[-6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
+            p += sprintf (p, "[3] /[_6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
             if (sta_netif && *ap.ssid)
             {
-               p += sprintf (p, "[6]WiFi/[-5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
+               p += sprintf (p, "[6]WiFi/[_5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
                char ip[40];
                if (revk_ipv4 (ip))
-                  p += sprintf (p, "[6] /IPv4/%s/", ip);
+                  p += sprintf (p, "[6] /IPv4/[|]%s/", ip);
                if (revk_ipv6 (ip))
-                  p += sprintf (p, "[6] /IPv6/[2]%s/", ip);
+                  p += sprintf (p, "[6] /IPv6/[2|]%s/", ip);
             }
             override = up + startup;
          } else
