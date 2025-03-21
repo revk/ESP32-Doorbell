@@ -421,7 +421,9 @@ getimage (const char *name)
       return NULL;
    char *url = NULL;
    asprintf (&url, "%s/%s.png", imageurl, name);
-   file_t *i = download (url);
+   file_t *i = find_file (url);
+   if (!i || !i->size)
+      i = download (url);
    free (url);
    return i;
 }
@@ -1085,9 +1087,23 @@ app_main ()
          ESP_LOGE (TAG, "SD Mounted");
    }
 
-   epd_lock ();
-   gfx_clear (255);             // Black
-   epd_unlock ();
+   void flash (void)
+   {                            // Random data
+      uint32_t r = 0;
+      epd_lock ();
+      for (int y = 0; y < gfx_height (); y++)
+         for (int x = 0; x < gfx_width (); x++)
+         {
+            if (!(x & 31))
+               r = esp_random ();
+            gfx_pixel (x, y, (r & 1) ? 255 : 0);
+            r >>= 1;
+         }
+      gfx_refresh ();
+      epd_unlock ();
+   }
+   if (gfxflash)
+      flash ();
 
    uint32_t lastrefresh = 0;
    uint8_t hour = -1;
@@ -1130,7 +1146,7 @@ app_main ()
             p += sprintf (p, "[3] /[_6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
             if (sta_netif && *ap.ssid)
             {
-               p += sprintf (p, "[6]WiFi/[_5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
+               p += sprintf (p, "[6]WiFi/[_5]%s/[3] /[3]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
                char ip[40];
                if (revk_ipv4 (ip))
                   p += sprintf (p, "[6] /IPv4/[|]%s/", ip);
@@ -1216,7 +1232,8 @@ app_main ()
          {                      // Show, and reinforce image
             if (last)
             {
-               revk_gpio_set (relay, 1);
+               if (relay.set)
+                  revk_gpio_set (relay, 1);
                if (*tasbell)
                {
                   char *topic = NULL;
@@ -1227,17 +1244,15 @@ app_main ()
                const char *msg = b.tasawaystate ? mqttaway : b.tasbusystate ? mqttbusy : mqttbell;
                if (*msg)
                   revk_mqtt_send_str (msg);
+               if (*toot)
+               {
+                  char *pl = NULL;
+                  asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900,
+                            t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
+                  revk_mqtt_send_raw ("toot", 0, pl, 1);
+                  free (pl);
+               }
             }
-            if (last && *toot)
-            {
-               char *pl = NULL;
-               asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900,
-                         t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
-               revk_mqtt_send_raw ("toot", 0, pl, 1);
-               free (pl);
-            }
-            if (!active)
-               active = getimage (activename);
             epd_lock ();
             gfx_clear (0);
             if (!active)
@@ -1248,17 +1263,22 @@ app_main ()
                gfx_refresh ();
             addqr ();
             epd_unlock ();
-            if (last)
+            if (last && relay.set)
                revk_gpio_set (relay, 0);
+            if (!active)
+               active = getimage (activename);
             last = 0;
+            b.getimages = 1;
          }
       } else if (last != now / UPDATERATE)
       {                         // Show idle
          if (!idle)
             idle = getimage (basename);
+         if (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4)
+            flash ();
          epd_lock ();
          gfx_clear (0);
-         if (!last || (refresh && lastrefresh != now / refresh) || (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4))
+         if (!last || (refresh && lastrefresh != now / refresh))
          {
             lastrefresh = now / refresh;
             gfx_refresh ();
