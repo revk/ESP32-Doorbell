@@ -9,7 +9,7 @@ gpio	gfx.rst		36					// E-Paper RST
 gpio	gfx.busy	35					// E-Paper BUSY
 u8	gfx.flip	6					// E-Paper display flip
 bit	gfx.invert	1					// E-Paper invert
-bit	gfx.flash	1				// E-paper startup flashy
+bit	gfx.flash	1					// E-paper startup flashy
 bit	gfx.night	1					// E-Paper refresh over night
 
 gpio	rgb		2					// RGB LED chain

@@ -379,14 +379,16 @@ image_load (const char *name, file_t * i, char c, uint16_t x, uint16_t y)
          colours = name;
          while (isalpha ((int) (unsigned char) *colours) && n < sizeof (led_colour))
             led_colour[n++] = *colours++;
-      } else
+      } else if (c)
          led_colour[n++] = c;   // Single from arg
-   } else
+   } else if (c)
       led_colour[n++] = c;      // Single from arg
-   while (n < sizeof (led_colour))
-      led_colour[n++] = 0;
+   if (n)
+      while (n < sizeof (led_colour))
+         led_colour[n++] = 0;
    if (i && i->data)
    {
+      ESP_LOGE (TAG, "Image %s", i->url);
       gfx_colour (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASK ? 'K' : 'W');
       gfx_background (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASKINVERT ? 'W' : 'K');
       plot (i, x - i->w / 2, y - i->h / 2);
@@ -426,6 +428,7 @@ setactive (char *value)
    if (!value || !strcmp (activename, value))
       return;
    strncpy (activename, value, sizeof (activename));
+   ESP_LOGE (TAG, "Set active %s", activename);
    active = NULL;
    if (!last)
       last = -1;                // Redisplay
@@ -551,9 +554,10 @@ web_root (httpd_req_t * req)
          if (filename != name)
             rgb = (revk_rgb (*name) & 0xFFFFFF);
          revk_web_send (req,
-                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img width=240 height=400 src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX%s'>%s%s</figcaption></figure>",
-                        gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, gfxinvert ? ";filter:invert(1)" : "", tag,
-                        !strcmp (name, imageidle) || !strcmp (name, activename) ? " (current)" : "");
+                        "<figure style='display:inline-block;background:black;border:10px solid black;border-left:20px solid black;margin:5px;'><img width=240 height=400 style='%s' src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX'>%s%s</figcaption></figure>",
+                        gfxinvert ^ (imageplot & 1) ? "" : "filter:invert(1)", imageurl, filename, rgb, tag, !strcmp (name,
+                                                                                                                      imageidle)
+                        || !strcmp (name, activename) ? " (current)" : "");
       }
       revk_web_send (req, "<p>");
       i ("Wait", imagewait);
@@ -707,8 +711,8 @@ app_callback (int client, const char *prefix, const char *target, const char *su
       return NULL;              //Not for us or not a command from main MQTT
    if (!strcmp (suffix, "setting"))
    {
-	   last=0;
-	   return "";
+      last = 0;
+      return "";
    }
    if (!strcmp (suffix, "connect"))
    {
@@ -1097,14 +1101,22 @@ app_main ()
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
-      void addqr (void)
+      void addqr (int active)
       {
-         if (*postcode)
+         char temp[200];
+         sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
+         gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
+         gfx_qr (temp, 4);
+         if (active >= 0)
          {
-            char temp[200];
-            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
-            gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
-            gfx_qr (temp, 4);
+            gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B | GFX_V);       // Yes slightly in from edge
+#if	UPDATERATE >= 60
+            gfx_7seg (active > 0 ? 4 : 2, "%02d:%02d", t.tm_hour, t.tm_min);
+#else
+            gfx_7seg (active > 0 ? 3 : 2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
+#endif
+            if (active > 1)
+               gfx_7seg (2, "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
          }
       }
       if (b.mqttinit)
@@ -1139,6 +1151,7 @@ app_main ()
          } else
             sleep (5);
          b.getimages = 1;
+         last = 0;
       }
       if (*overridemsg)
       {
@@ -1152,7 +1165,7 @@ app_main ()
             gfx_clear (0);
             gfx_message ((char *) overridemsg);
             *overridemsg = 0;
-            addqr ();
+            addqr (-1);
             epd_unlock ();
          }
       }
@@ -1174,7 +1187,7 @@ app_main ()
                epd_lock ();
                gfx_clear (0);
                image_load (t, i, 'B', gfx_width () / 2, gfx_height () / 2);
-               addqr ();
+               addqr (-1);
                epd_unlock ();
             }
          }
@@ -1186,8 +1199,8 @@ app_main ()
       {                         // Ensure images in cache in advance
          b.getimages = 0;
          getimage (imageidle);
-         getimage (imageidleo);
-         getimage (imageactiveo);
+         idleo = getimage (imageidleo);
+         activeo = getimage (imageactiveo);
          getimage (imagewait);
          if (*tasbusy)
             getimage (imagebusy);
@@ -1225,20 +1238,23 @@ app_main ()
                   free (pl);
                }
             }
+            if (!active)
+               active = getimage (activename);
+            ESP_LOGE (TAG, "Active %s %ld", active ? active->url : "?", active ? active->size : 0);
             epd_lock ();
             gfx_clear (0);
             if (!active)
-               gfx_message ("/ / / / / / /[20]PLEASE/WAIT");
+               gfx_message ("/ / / / / / /[11]PLEASE/WAIT");
             else
                image_load (activename, active, 'B', gfx_width () / 2, gfx_height () / 2);
-            image_load (imageactiveo, activeo, 'B', imageactivex, imageactivey);
+            image_load (imageactiveo, activeo, 0, imageactivex, imageactivey);
             if (last && *activename == '!')
                gfx_refresh ();
-            addqr ();
+            addqr (1);
             epd_unlock ();
             if (last && relay.set)
                revk_gpio_set (relay, 0);
-            // Update for cache
+            // Update for cache if changes
             active = getimage (activename);
             activeo = getimage (imageactiveo);
             last = 0;
@@ -1272,14 +1288,8 @@ app_main ()
             gfx_message ("/ / / / / /[10]CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
             image_load (imageidle, idle, 'K', gfx_width () / 2, gfx_height () / 2);
-         image_load (imageidleo, idleo, 'K', imageidlex, imageidley);
-         addqr ();
-         gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B);  // Yes slightly in from edge
-#if	UPDATERATE >= 60
-         gfx_7seg (2, "%02d:%02d", t.tm_hour, t.tm_min);
-#else
-         gfx_7seg (2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
-#endif
+         image_load (imageidleo, idleo, 0, imageidlex, imageidley);
+         addqr (0);
          epd_unlock ();
       }
    }
@@ -1305,6 +1315,7 @@ revk_web_extra (httpd_req_t * req)
    revk_web_setting (req, "Overlay", "imageactivex");
    revk_web_setting (req, "Overlay", "imageactivey");
    revk_web_setting (req, "Image invert", "gfxinvert");
+   revk_web_setting (req, "Plot mode", "imageplot");
    if (*mqtthost)
    {
       revk_web_setting_title (req, "MQTT controls");
