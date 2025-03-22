@@ -72,24 +72,27 @@ uint8_t nfcledoverride = 0;
 file_t *cache = NULL;
 file_t *idle = NULL;
 file_t *active = NULL;
+char season = 0;
 
 const char *
 getidle (time_t t)
 {
-   const char *season = revk_season (t);
-   if (*imagemoon && *season == 'M')
+   season = *revk_season (t);
+   if (*imageseason)
+      season = *imageseason;
+   if (*imagemoon && season == 'M')
       return imagemoon;
-   if (*imagenew && *season == 'N')
+   if (*imagenew && season == 'N')
       return imagenew;
-   if (*imageval && *season == 'V')
+   if (*imageval && season == 'V')
       return imageval;
-   if (*imagexmas && *season == 'X')
+   if (*imagexmas && season == 'X')
       return imagexmas;
-   if (*imageyear && *season == 'Y')
+   if (*imageyear && season == 'Y')
       return imageyear;
-   if (*imagehall && *season == 'H')
+   if (*imagehall && season == 'H')
       return imagehall;
-   if (*imageeast && *season == 'E')
+   if (*imageeast && season == 'E')
       return imageeast;
    return imageidle;
 }
@@ -421,6 +424,14 @@ getimage (const char *name)
       return NULL;
    char *url = NULL;
    asprintf (&url, "%s/%s.png", imageurl, name);
+   char *s = strchr (url, '*');
+   if (s)
+   {
+      if (season)
+         *s = season;
+      else
+         strcpy (s, s + 1);
+   }
    file_t *i = find_file (url);
    if (!i || !i->size)
       i = download (url);
@@ -1256,7 +1267,7 @@ app_main ()
             epd_lock ();
             gfx_clear (0);
             if (!active)
-               gfx_message ("/ / / / / / /PLEASE/WAIT");
+               gfx_message ("/ / / / / / /[20]PLEASE/WAIT");
             else
                image_load (activename, active, 'B');
             if (last && *activename == '*')
@@ -1285,7 +1296,7 @@ app_main ()
          }
          last = now / UPDATERATE;
          if (!idle)
-            gfx_message ("/ / / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
+            gfx_message ("/ / / / / /[10]CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
             image_load (basename, idle, 'K');
          addqr ();

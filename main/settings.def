@@ -35,6 +35,7 @@ s	image.busy	Y:Busy			.live		// Busy image name
 s	image.away	R:Away			.live		// Away image name
 u32	image.cache	86400	.unit="s"			// Image cache time
 enum	image.plot		1	.live .enums="Normal,Invert,Mask,MaskInvert"	// Plot mode
+c1	image.season				.live		// Season override
 
 s	postcode				.live		// Postcode (adds QR to images)
 s	toot					.live		// Toot username 
