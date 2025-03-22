@@ -1110,7 +1110,7 @@ app_main ()
    while (1)
    {
       usleep (100000);
-      time_t now = time (0);
+      time_t now = time (0) + 2;
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
