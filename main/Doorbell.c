@@ -1116,7 +1116,10 @@ app_main ()
             gfx_7seg (active > 0 ? 3 : 2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
 #endif
             if (active > 0)
-               gfx_7seg (2, "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+            {
+               gfx_7seg (2, "%02d-%02d", t.tm_mon + 1, t.tm_mday);
+               gfx_7seg (2, "%04d-", t.tm_year + 1900);
+            }
          }
       }
       if (b.mqttinit)
