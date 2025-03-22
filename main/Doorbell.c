@@ -1236,6 +1236,8 @@ app_main ()
             if (!active)
                active = getimage (activename);
             epd_lock ();
+            if (imageflash)
+               gfx_refresh ();
             gfx_clear (0);
             if (!active)
                gfx_message ("/ / / / / / /[11]PLEASE/WAIT");
@@ -1308,6 +1310,7 @@ revk_web_extra (httpd_req_t * req)
    revk_web_setting (req, "Overlay", "imageactiveo");
    revk_web_setting (req, "Overlay", "imageactivex");
    revk_web_setting (req, "Overlay", "imageactivey");
+   revk_web_setting (req, "Slow active", "imageflash");
    revk_web_setting (req, "Image invert", "gfxinvert");
    revk_web_setting (req, "Plot mode", "imageplot");
    if (*mqtthost)
