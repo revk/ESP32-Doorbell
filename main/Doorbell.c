@@ -1115,7 +1115,7 @@ app_main ()
 #else
             gfx_7seg (active > 0 ? 3 : 2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
 #endif
-            if (active > 1)
+            if (active > 0)
                gfx_7seg (2, "%04d-%02d-%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
          }
       }
@@ -1126,6 +1126,18 @@ app_main ()
          last = -1;
          tassub (tasaway);
          tassub (tasbusy);
+      }
+      if (b.getimages)
+      {                         // Ensure images in cache in advance
+         b.getimages = 0;
+         getimage (imageidle);
+         idleo = getimage (imageidleo);
+         activeo = getimage (imageactiveo);
+         getimage (imagewait);
+         if (*tasbusy)
+            getimage (imagebusy);
+         if (*tasaway)
+            getimage (imageaway);
       }
       if (b.wificonnect)
       {
@@ -1195,18 +1207,6 @@ app_main ()
       }
       if (override && override < up)
          override = 0;
-      if (b.getimages)
-      {                         // Ensure images in cache in advance
-         b.getimages = 0;
-         getimage (imageidle);
-         idleo = getimage (imageidleo);
-         activeo = getimage (imageactiveo);
-         getimage (imagewait);
-         if (*tasbusy)
-            getimage (imagebusy);
-         if (*tasaway)
-            getimage (imageaway);
-      }
       if (override)
          continue;
       if (pushed < up)
