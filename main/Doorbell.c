@@ -388,7 +388,6 @@ image_load (const char *name, file_t * i, char c, uint16_t x, uint16_t y)
          led_colour[n++] = 0;
    if (i && i->data)
    {
-      ESP_LOGE (TAG, "Image %s", i->url);
       gfx_colour (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASK ? 'K' : 'W');
       gfx_background (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASKINVERT ? 'W' : 'K');
       plot (i, x - i->w / 2, y - i->h / 2);
@@ -428,7 +427,6 @@ setactive (char *value)
    if (!value || !strcmp (activename, value))
       return;
    strncpy (activename, value, sizeof (activename));
-   ESP_LOGE (TAG, "Set active %s", activename);
    active = NULL;
    if (!last)
       last = -1;                // Redisplay
@@ -1174,15 +1172,12 @@ app_main ()
          if (override < up)
             override = up + holdtime;
          last = 0;
-         for (int n = 0; n < 3; n++)
-         {
-            epd_lock ();
-            gfx_clear (0);
-            gfx_message ((char *) overridemsg);
-            *overridemsg = 0;
-            addqr (-1);
-            epd_unlock ();
-         }
+         epd_lock ();
+         gfx_clear (0);
+         gfx_message ((char *) overridemsg);
+         *overridemsg = 0;
+         addqr (-1);
+         epd_unlock ();
       }
       if (*overridename)
       {                         // Special override
@@ -1195,16 +1190,13 @@ app_main ()
             if (override < up)
                override = up + holdtime;
             last = 0;
-            for (int n = 0; n < 3; n++)
-            {
-               if (!n && *t == '!')
-                  gfx_refresh ();
-               epd_lock ();
-               gfx_clear (0);
-               image_load (t, i, 'B', gfx_width () / 2, gfx_height () / 2);
-               addqr (-1);
-               epd_unlock ();
-            }
+            if (*t == '!')
+               gfx_refresh ();
+            epd_lock ();
+            gfx_clear (0);
+            image_load (t, i, 'B', gfx_width () / 2, gfx_height () / 2);
+            addqr (-1);
+            epd_unlock ();
          }
          free (t);
       }
@@ -1243,7 +1235,6 @@ app_main ()
             }
             if (!active)
                active = getimage (activename);
-            ESP_LOGE (TAG, "Active %s %ld", active ? active->url : "?", active ? active->size : 0);
             epd_lock ();
             gfx_clear (0);
             if (!active)
