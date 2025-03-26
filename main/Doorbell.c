@@ -1281,7 +1281,7 @@ app_main ()
          }
          last = now / UPDATERATE;
          if (!idle)
-            gfx_message ("/ / / /[10]CANWCH/Y GLOCH/ / /RING/THE/BELL");
+            gfx_message ("/ / /[10]CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
             image_load (imageidle, idle, 'K', gfx_width () / 2, gfx_height () / 2);
          image_load (imageidleo, idleo, 0, imageidlex, imageidley);
