@@ -71,35 +71,17 @@ uint8_t nfcledoverride = 0;
 
 file_t *cache = NULL;
 file_t *idle = NULL;
+file_t *idleo = NULL;
 file_t *active = NULL;
-
-const char *
-getidle (time_t t)
-{
-   const char *season = revk_season (t);
-   if (*imagemoon && *season == 'M')
-      return imagemoon;
-   if (*imagenew && *season == 'N')
-      return imagenew;
-   if (*imageval && *season == 'V')
-      return imageval;
-   if (*imagexmas && *season == 'X')
-      return imagexmas;
-   if (*imageyear && *season == 'Y')
-      return imageyear;
-   if (*imagehall && *season == 'H')
-      return imagehall;
-   if (*imageeast && *season == 'E')
-      return imageeast;
-   return imageidle;
-}
+file_t *activeo = NULL;
+char season = 0;
 
 const char *
 skipcolour (const char *n)
 {
    if (!n || !*n)
       return n;
-   if (*n == '*')
+   if (*n == '!')
       n++;                      // Full refresh
    const char *c = n;
    while (*c && isalpha ((int) (unsigned char) *c))
@@ -382,12 +364,12 @@ plot (file_t * i, gfx_pos_t ox, gfx_pos_t oy)
 }
 
 void
-image_load (const char *name, file_t * i, char c)
+image_load (const char *name, file_t * i, char c, uint16_t x, uint16_t y)
 {                               // Load image and set LEDs (image can be prefixed with colour, else default is used)
    int n = 0;
    if (name)
    {
-      if (*name == '*')
+      if (*name == '!')
          name++;                // Skip, refresh actually done in calling side
       const char *colours = name;
       while (*colours && isalpha ((int) (unsigned char) *colours))
@@ -397,17 +379,18 @@ image_load (const char *name, file_t * i, char c)
          colours = name;
          while (isalpha ((int) (unsigned char) *colours) && n < sizeof (led_colour))
             led_colour[n++] = *colours++;
-      } else
+      } else if (c)
          led_colour[n++] = c;   // Single from arg
-   } else
+   } else if (c)
       led_colour[n++] = c;      // Single from arg
-   while (n < sizeof (led_colour))
-      led_colour[n++] = 0;
+   if (n)
+      while (n < sizeof (led_colour))
+         led_colour[n++] = 0;
    if (i && i->data)
    {
       gfx_colour (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASK ? 'K' : 'W');
       gfx_background (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASKINVERT ? 'W' : 'K');
-      plot (i, 0, 0);
+      plot (i, x - i->w / 2, y - i->h / 2);
       gfx_colour ('K');
       gfx_background ('W');
    }
@@ -421,8 +404,20 @@ getimage (const char *name)
       return NULL;
    char *url = NULL;
    asprintf (&url, "%s/%s.png", imageurl, name);
-   file_t *i = download (url);
+   char *s = strchr (url, '*');
+   if (s)
+   {
+      if (season)
+         *s = season;
+      else
+         strcpy (s, s + 1);
+   }
+   file_t *i = find_file (url);
+   if (!i || !i->size)
+      i = download (url);
    free (url);
+   if (!i || !i->size)
+      return NULL;
    return i;
 }
 
@@ -548,8 +543,6 @@ web_root (httpd_req_t * req)
 #endif
    if (*imageurl)
    {
-      time_t now = time (0);
-      const char *isidle = getidle (now);
       void i (const char *tag, const char *name)
       {
          if (!*name)
@@ -559,22 +552,12 @@ web_root (httpd_req_t * req)
          if (filename != name)
             rgb = (revk_rgb (*name) & 0xFFFFFF);
          revk_web_send (req,
-                        "<figure style='display:inline-block;background:white;border:10px solid white;border-left:20px solid white;margin:5px;%s'><img width=240 height=400 src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX%s'>%s%s</figcaption></figure>",
-                        gfxinvert ? ";filter:invert(1)" : "", imageurl, filename, rgb, gfxinvert ? ";filter:invert(1)" : "", tag,
-                        !strcmp (name, isidle) || !strcmp (name, activename) ? " (current)" : "");
+                        "<figure style='display:inline-block;background:black;border:10px solid black;border-left:20px solid black;margin:5px;'><img width=240 height=400 style='%s' src='%s/%s.png'><figcaption style='margin:3px;padding:3px;background:#%06lX'>%s%s</figcaption></figure>",
+                        gfxinvert ^ (imageplot & 1) ? "" : "filter:invert(1)", imageurl, filename, rgb, tag, !strcmp (name,
+                                                                                                                      imageidle)
+                        || !strcmp (name, activename) ? " (current)" : "");
       }
       revk_web_send (req, "<p>");
-      i ("Idle", imageidle);
-      i ("Full moon", imagemoon);
-      i ("New moon", imagenew);
-      i ("New Year", imageyear);
-      i ("Easter", imageeast);
-      i ("Halloween", imagehall);
-      i ("Valentine", imageval);
-      i ("Xmas", imagexmas);
-      revk_web_send (req, "</p><p>");
-      if (strcmp (activename, imagewait) && strcmp (activename, imagewait) && strcmp (activename, imageaway))
-         i ("Active", activename);
       i ("Wait", imagewait);
       if (*tasbusy)
          i ("Busy", imagebusy);
@@ -724,6 +707,11 @@ app_callback (int client, const char *prefix, const char *target, const char *su
    }
    if (client || !prefix || target || strcmp (prefix, topiccommand) || !suffix)
       return NULL;              //Not for us or not a command from main MQTT
+   if (!strcmp (suffix, "setting"))
+   {
+      last = 0;
+      return "";
+   }
    if (!strcmp (suffix, "connect"))
    {
       b.mqttinit = 1;
@@ -1020,7 +1008,7 @@ app_main ()
       REVK_ERR_CHECK (led_strip_new_rmt_device (&strip_config, &rmt_config, &strip));
       if (strip)
          revk_task ("led", led_task, NULL, 4);
-      image_load (NULL, NULL, 'M');
+      image_load (NULL, NULL, 'M', gfx_width () / 2, gfx_height () / 2);
    }
    // Web interface
    httpd_config_t config = HTTPD_DEFAULT_CONFIG ();
@@ -1085,30 +1073,53 @@ app_main ()
          ESP_LOGE (TAG, "SD Mounted");
    }
 
-   epd_lock ();
-   gfx_clear (255);             // Black
-   epd_unlock ();
+   void flash (void)
+   {                            // Random data
+      uint32_t r = 0;
+      epd_lock ();
+      for (int y = 0; y < gfx_height (); y++)
+         for (int x = 0; x < gfx_width (); x++)
+         {
+            if (!(x & 31))
+               r = esp_random ();
+            gfx_pixel (x, y, (r & 1) ? 255 : 0);
+            r >>= 1;
+         }
+      gfx_refresh ();
+      epd_unlock ();
+   }
+   if (gfxflash)
+      flash ();
 
    uint32_t lastrefresh = 0;
-   uint8_t hour = -1;
    while (1)
    {
       usleep (100000);
-      time_t now = time (0);
+      time_t now = time (0) + 2;
       struct tm t;
       localtime_r (&now, &t);
       uint32_t up = uptime ();
-      void addqr (void)
+      void addqr (int active)
       {
-         if (*postcode)
+         char temp[200];
+         sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
+         gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
+         gfx_qr (temp, 4);
+         if (active >= 0)
          {
-            char temp[200];
-            sprintf (temp, "%4d-%02d-%02d %02d:%02d %s", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, postcode);
-            gfx_pos (0, gfx_height () - 1, GFX_B | GFX_L | GFX_V);
-            gfx_qr (temp, 4);
+            gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B | GFX_V);       // Yes slightly in from edge
+#if	UPDATERATE >= 60
+            gfx_7seg (active > 0 ? 4 : 2, "%02d:%02d", t.tm_hour, t.tm_min);
+#else
+            gfx_7seg (active > 0 ? 3 : 2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
+#endif
+            if (active > 0)
+            {
+               gfx_7seg (2, "%02d-%02d", t.tm_mon + 1, t.tm_mday);
+               gfx_7seg (2, "%04d-", t.tm_year + 1900);
+            }
          }
       }
-      const char *basename = getidle (now);
       if (b.mqttinit)
       {
          ESP_LOGE (TAG, "MQTT Connected");
@@ -1116,6 +1127,18 @@ app_main ()
          last = -1;
          tassub (tasaway);
          tassub (tasbusy);
+      }
+      if (b.getimages)
+      {                         // Ensure images in cache in advance
+         b.getimages = 0;
+         getimage (imageidle);
+         idleo = getimage (imageidleo);
+         activeo = getimage (imageactiveo);
+         getimage (imagewait);
+         if (*tasbusy)
+            getimage (imagebusy);
+         if (*tasaway)
+            getimage (imageaway);
       }
       if (b.wificonnect)
       {
@@ -1130,7 +1153,7 @@ app_main ()
             p += sprintf (p, "[3] /[_6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
             if (sta_netif && *ap.ssid)
             {
-               p += sprintf (p, "[6]WiFi/[_5]%s/[3] /[6]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
+               p += sprintf (p, "[6]WiFi/[_5]%s/[3] /[3]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
                char ip[40];
                if (revk_ipv4 (ip))
                   p += sprintf (p, "[6] /IPv4/[|]%s/", ip);
@@ -1141,6 +1164,7 @@ app_main ()
          } else
             sleep (5);
          b.getimages = 1;
+         last = 0;
       }
       if (*overridemsg)
       {
@@ -1148,15 +1172,12 @@ app_main ()
          if (override < up)
             override = up + holdtime;
          last = 0;
-         for (int n = 0; n < 3; n++)
-         {
-            epd_lock ();
-            gfx_clear (0);
-            gfx_message ((char *) overridemsg);
-            *overridemsg = 0;
-            addqr ();
-            epd_unlock ();
-         }
+         epd_lock ();
+         gfx_clear (0);
+         gfx_message ((char *) overridemsg);
+         *overridemsg = 0;
+         addqr (-1);
+         epd_unlock ();
       }
       if (*overridename)
       {                         // Special override
@@ -1169,43 +1190,18 @@ app_main ()
             if (override < up)
                override = up + holdtime;
             last = 0;
-            for (int n = 0; n < 3; n++)
-            {
-               if (!n && *t == '*')
-                  gfx_refresh ();
-               epd_lock ();
-               gfx_clear (0);
-               image_load (t, i, 'B');
-               addqr ();
-               epd_unlock ();
-            }
+            if (*t == '!')
+               gfx_refresh ();
+            epd_lock ();
+            gfx_clear (0);
+            image_load (t, i, 'B', gfx_width () / 2, gfx_height () / 2);
+            addqr (-1);
+            epd_unlock ();
          }
          free (t);
       }
       if (override && override < up)
          override = 0;
-      if (!revk_link_down () && hour != t.tm_hour)
-      {                         // Check new files
-         hour = t.tm_hour;
-         idle = getimage (basename);
-         active = getimage (activename);
-      }
-      if (b.getimages)
-      {
-         b.getimages = 0;
-         getimage (imageidle);  // Cache stuff
-         getimage (imagewait);
-         if (*tasbusy)
-            getimage (imagebusy);
-         if (*tasaway)
-            getimage (imageaway);
-         getimage (imagexmas);
-         getimage (imagemoon);
-         getimage (imagenew);
-         getimage (imageval);
-         getimage (imagehall);
-         getimage (imageeast);
-      }
       if (override)
          continue;
       if (pushed < up)
@@ -1216,7 +1212,8 @@ app_main ()
          {                      // Show, and reinforce image
             if (last)
             {
-               revk_gpio_set (relay, 1);
+               if (relay.set)
+                  revk_gpio_set (relay, 1);
                if (*tasbell)
                {
                   char *topic = NULL;
@@ -1227,54 +1224,68 @@ app_main ()
                const char *msg = b.tasawaystate ? mqttaway : b.tasbusystate ? mqttbusy : mqttbell;
                if (*msg)
                   revk_mqtt_send_str (msg);
-            }
-            if (last && *toot)
-            {
-               char *pl = NULL;
-               asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900,
-                         t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
-               revk_mqtt_send_raw ("toot", 0, pl, 1);
-               free (pl);
+               if (*toot)
+               {
+                  char *pl = NULL;
+                  asprintf (&pl, "@%s\nDing dong\n%s\n%4d-%02d-%02d %02d:%02d:%02d", toot, activename, t.tm_year + 1900,
+                            t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec);
+                  revk_mqtt_send_raw ("toot", 0, pl, 1);
+                  free (pl);
+               }
             }
             if (!active)
                active = getimage (activename);
             epd_lock ();
+            if (imageflash)
+               gfx_refresh ();
             gfx_clear (0);
             if (!active)
-               gfx_message ("/ / / / / / /PLEASE/WAIT");
+               gfx_message ("/ / / / / / /[11]PLEASE/WAIT");
             else
-               image_load (activename, active, 'B');
-            if (last && *activename == '*')
+               image_load (activename, active, 'B', gfx_width () / 2, gfx_height () / 2);
+            image_load (imageactiveo, activeo, 0, imageactivex, imageactivey);
+            if (last && *activename == '!')
                gfx_refresh ();
-            addqr ();
+            addqr (1);
             epd_unlock ();
-            if (last)
+            if (last && relay.set)
                revk_gpio_set (relay, 0);
+            // Update for cache if changes
+            active = getimage (activename);
+            activeo = getimage (imageactiveo);
             last = 0;
+            b.getimages = 1;
          }
       } else if (last != now / UPDATERATE)
       {                         // Show idle
-         if (!idle)
-            idle = getimage (basename);
+         {
+            char s = season;
+            if (*imageseason)
+               season = *imageseason;
+            else
+               season = *revk_season (now);
+            if (s != season)
+               idle = idleo = NULL;     // Changed
+         }
+         // Update for cache
+         idle = getimage (imageidle);
+         idleo = getimage (imageidleo);
+         if (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4)
+            flash ();
          epd_lock ();
          gfx_clear (0);
-         if (!last || (refresh && lastrefresh != now / refresh) || (gfxnight && t.tm_hour >= 2 && t.tm_hour < 4))
+         if (!last || (refresh && lastrefresh != now / refresh))
          {
             lastrefresh = now / refresh;
             gfx_refresh ();
          }
          last = now / UPDATERATE;
          if (!idle)
-            gfx_message ("/ / / / / /CANWCH/Y GLOCH/ / /RING/THE/BELL");
+            gfx_message ("/ / / / / /[10]CANWCH/Y GLOCH/ / /RING/THE/BELL");
          else
-            image_load (basename, idle, 'K');
-         addqr ();
-         gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B);  // Yes slightly in from edge
-#if	UPDATERATE >= 60
-         gfx_7seg (2, "%02d:%02d", t.tm_hour, t.tm_min);
-#else
-         gfx_7seg (2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
-#endif
+            image_load (imageidle, idle, 'K', gfx_width () / 2, gfx_height () / 2);
+         image_load (imageidleo, idleo, 0, imageidlex, imageidley);
+         addqr (0);
          epd_unlock ();
       }
    }
@@ -1283,27 +1294,32 @@ app_main ()
 void
 revk_web_extra (httpd_req_t * req)
 {
+   revk_web_setting_title (req, "Images used");
    revk_web_setting (req, "Base URL", "imageurl");
+   revk_web_setting_info (req,
+                          "The following names have <tt>.png</tt> appended. You can prefix with colour letters and a <tt>:</tt>. You can use <tt>*</tt> in name for season code.");
    revk_web_setting (req, "Idle", "imageidle");
+   revk_web_setting (req, "Overlay", "imageidleo");
+   revk_web_setting (req, "Overlay", "imageidlex");
+   revk_web_setting (req, "Overlay", "imageidley");
    revk_web_setting (req, "Wait", "imagewait");
    if (*tasbusy)
       revk_web_setting (req, "Busy", "imagebusy");
    if (*tasaway)
       revk_web_setting (req, "Away", "imageaway");
-   revk_web_setting (req, "Full moon", "imagemoon");
-   revk_web_setting (req, "New moon", "imagenew");
-   revk_web_setting (req, "New year", "imageyear");
-   revk_web_setting (req, "Valentine", "imageval");
-   revk_web_setting (req, "Easter", "imageeast");
-   revk_web_setting (req, "Halloween", "imagehall");
-   revk_web_setting (req, "Xmas", "imagexmas");
+   revk_web_setting (req, "Overlay", "imageactiveo");
+   revk_web_setting (req, "Overlay", "imageactivex");
+   revk_web_setting (req, "Overlay", "imageactivey");
+   revk_web_setting (req, "Slow active", "imageflash");
+   revk_web_setting (req, "Image invert", "gfxinvert");
+   revk_web_setting (req, "Plot mode", "imageplot");
    if (*mqtthost)
    {
+      revk_web_setting_title (req, "MQTT controls");
       revk_web_setting (req, "MQTT Bell", "mqttbell");
       if (*tasbusy)
          revk_web_setting (req, "MQTT Busy", "mqttbusy");
       if (*tasaway)
          revk_web_setting (req, "MQTT Away", "mqttaway");
    }
-   revk_web_setting (req, "Image invert", "gfxinvert");
 }
