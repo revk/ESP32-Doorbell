@@ -579,6 +579,7 @@ web_push (httpd_req_t * req)
       return web_text (req, NULL);
    }
    pushed = uptime () + holdtime;
+   sleep(1);
    return web_root (req);
 }
 
