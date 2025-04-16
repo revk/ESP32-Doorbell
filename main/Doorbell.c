@@ -869,10 +869,18 @@ push_task (void *arg)
    {
       uint8_t l = revk_gpio_get (btn1);
       if (l && !b.btn)
-      {
-         ESP_LOGE (TAG, "Pushed btn1");
-         revk_info ("btn1", NULL);
-         pushed = uptime () + holdtime;
+      { // Some debounce
+         usleep (10000);
+         if ((l = revk_gpio_get (btn1)))
+         {
+            usleep (10000);
+            if ((l = revk_gpio_get (btn1)))
+            {
+               ESP_LOGE (TAG, "Pushed btn1");
+               revk_info ("btn1", NULL);
+               pushed = uptime () + holdtime;
+            }
+         }
       }
       b.btn = l;
       usleep (10000);
