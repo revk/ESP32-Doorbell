@@ -388,11 +388,12 @@ image_load (const char *name, file_t * i, char c, uint16_t x, uint16_t y)
          led_colour[n++] = 0;
    if (i && i->data)
    {
-      gfx_colour (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASK ? 'K' : 'W');
-      gfx_background (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASKINVERT ? 'W' : 'K');
+      gfx_foreground (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL || imageplot == REVK_SETTINGS_IMAGEPLOT_MASK ? 0 : 0xFFFFFF);
+      gfx_background (imageplot == REVK_SETTINGS_IMAGEPLOT_NORMAL
+                      || imageplot == REVK_SETTINGS_IMAGEPLOT_MASKINVERT ? 0xFFFFFF : 0);
       plot (i, x - i->w / 2, y - i->h / 2);
-      gfx_colour ('K');
-      gfx_background ('W');
+      gfx_foreground (0);
+      gfx_background (0xFFFFFF);
    }
 }
 
@@ -579,7 +580,7 @@ web_push (httpd_req_t * req)
       return web_text (req, NULL);
    }
    pushed = uptime () + holdtime;
-   sleep(1);
+   sleep (1);
    return web_root (req);
 }
 
@@ -1110,14 +1111,14 @@ app_main ()
          {
             gfx_pos (gfx_width () - 2, gfx_height () - 2, GFX_R | GFX_B | GFX_V);       // Yes slightly in from edge
 #if	UPDATERATE >= 60
-            gfx_7seg (active > 0 ? 4 : 2, "%02d:%02d", t.tm_hour, t.tm_min);
+            gfx_7seg (0, active > 0 ? 4 : 2, "%02d:%02d", t.tm_hour, t.tm_min);
 #else
-            gfx_7seg (active > 0 ? 3 : 2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
+            gfx_7seg (0, active > 0 ? 3 : 2, "%02d:%02d:%02d", t.tm_hour, t.tm_min, t.tm_sec);
 #endif
             if (active > 0)
             {
-               gfx_7seg (2, "%02d-%02d", t.tm_mon + 1, t.tm_mday);
-               gfx_7seg (2, "%04d-", t.tm_year + 1900);
+               gfx_7seg (0, 2, "%02d-%02d", t.tm_mon + 1, t.tm_mday);
+               gfx_7seg (0, 2, "%04d-", t.tm_year + 1900);
             }
          }
       }
