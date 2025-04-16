@@ -481,7 +481,7 @@ epd_unlock (void)
 static esp_err_t
 web_frame (httpd_req_t * req)
 {
-   epd_lock ();
+   xSemaphoreTake (epd_mutex, portMAX_DELAY);
    uint8_t *png = NULL;
    size_t len = 0;
    uint32_t w = gfx_raw_w ();
@@ -508,7 +508,7 @@ web_frame (httpd_req_t * req)
       httpd_resp_send (req, (char *) png, len);
    }
    free (png);
-   epd_unlock ();
+   xSemaphoreGive (epd_mutex);
    return ESP_OK;
 }
 #endif
