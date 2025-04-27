@@ -1156,26 +1156,6 @@ app_main ()
       if (b.wificonnect)
       {
          b.wificonnect = 0;
-         if (startup)
-         {
-            wifi_ap_record_t ap = {
-            };
-            esp_wifi_sta_get_ap_info (&ap);
-            char *p = (char *) overridemsg;
-            char temp[20];
-            p += sprintf (p, "[3] /[_6]%s/%s/[3]%s %s/[3] / /", appname, hostname, revk_version, revk_build_date (temp) ? : "?");
-            if (sta_netif && *ap.ssid)
-            {
-               p += sprintf (p, "[6]WiFi/[_5]%s/[3] /[3]Channel %d/RSSI %d/[3] /", (char *) ap.ssid, ap.primary, ap.rssi);
-               char ip[40];
-               if (revk_ipv4 (ip))
-                  p += sprintf (p, "[6] /IPv4/[|]%s/", ip);
-               if (revk_ipv6 (ip))
-                  p += sprintf (p, "[6] /IPv6/[2|]%s/", ip);
-            }
-            override = up + startup;
-         } else
-            sleep (5);
          b.getimages = 1;
          last = 0;
       }
