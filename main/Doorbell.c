@@ -1048,6 +1048,9 @@ app_main ()
          jo_string (j, "description", e);
          revk_error ("gfx", &j);
       }
+      xSemaphoreTake (epd_mutex, portMAX_DELAY);
+      revk_gfx_init (startup);
+      xSemaphoreGive (epd_mutex);
    }
    if (sdcmd.set)
    {
