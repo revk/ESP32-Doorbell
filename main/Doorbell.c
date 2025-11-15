@@ -500,7 +500,7 @@ web_frame (httpd_req_t * req)
    ESP_LOGD (TAG, "Encoded %u bytes %s", len, e ? : "");
    if (e)
    {
-      revk_web_head (req, *hostname ? hostname : appname);
+      revk_web_head (req, *hostname ? hostname : revk_app);
       revk_web_send (req, e);
       revk_web_foot (req, 0, 1, NULL);
    } else
@@ -519,7 +519,7 @@ web_root (httpd_req_t * req)
 {
    if (revk_link_down ())
       return revk_web_settings (req);   // Direct to web set up
-   web_head (req, *hostname ? hostname : appname);
+   web_head (req, *hostname ? hostname : revk_app);
    revk_web_send (req, "<p><a href=/push>Ding!</a></p>");
    if (card)
       revk_web_send (req, "<p>SD card mounted</p>");
