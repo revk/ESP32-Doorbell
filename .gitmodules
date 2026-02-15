@@ -20,7 +20,7 @@
 	url = https://github.com/revk/QR
 [submodule "components/ESP32-GFX"]
 	path = components/ESP32-GFX
-	url = https://github.com/revk/ESP32-GFX
+	url = https://codeberg.org/RevK/ESP32-GFX
 [submodule "components/ESP32-LWPNG"]
 	path = components/ESP32-LWPNG
 	url = https://github.com/revk/ESP32-LWPNG
